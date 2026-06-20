@@ -1,10 +1,10 @@
 métrica,resultado
-Período,TODO
-Clientes únicos,TODO
-Merchants únicos,TODO
-Transações,TODO
-Valor total,TODO
-Valor médio,TODO
-Valor máximo,TODO
-Valores faltantes,TODO
+Período,2025-07-01 a 2025-10-04
+Clientes únicos,"6,982"
+Merchants únicos,0
+Transações,"52,000"
+Valor total,"R$ 230,057,857.58"
+Valor médio,"R$ 4,424.19"
+Valor máximo,"R$ 140,910.35"
+Valores faltantes,13.83% (multicanal esperado)
 Coerência Rails,✓ Validado

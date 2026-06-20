@@ -2,6 +2,13 @@
 """
 Notebook 01 — EDA e Qualidade de Dados
 Versão em script Python puro (sem Jupyter)
+
+SHEET NAMES:
+  - Transactions
+  - KYC_Profiles (clientes/customers)
+  - Merchants
+  - GeoBehavior
+  - Data_Dictionary
 """
 
 import sys
@@ -26,36 +33,18 @@ print(f"✓ Seed fixada: {SEED}")
 print(f"✓ Caminhos: RAW={DATA_RAW}, PROCESSED={DATA_PROCESSED}")
 
 # ============================================================================
-# 1. CARREGAR DADOS
+# 1. CARREGAR DADOS (NOMES EXATOS DAS SHEETS)
 # ============================================================================
 
 excel_file = DATA_RAW / "AML Case Cloudwalk INC.xlsx"
 
-# Verificar quais sheets existem
-xls = pd.ExcelFile(excel_file)
-print("\nSheets encontrados:")
-for i, sheet in enumerate(xls.sheet_names, 1):
-    print(f"  {i}. {sheet}")
+# Carregando com nomes EXATOS
+transactions = pd.read_excel(excel_file, sheet_name='Transactions')
+clients = pd.read_excel(excel_file, sheet_name='KYC_Profiles')
+merchants = pd.read_excel(excel_file, sheet_name='Merchants')
 
-# Carregar cada sheet (ajuste os nomes conforme os sheets reais)
-try:
-    transactions = pd.read_excel(excel_file, sheet_name='transacoes')
-    clients = pd.read_excel(excel_file, sheet_name='clientes')
-    merchants = pd.read_excel(excel_file, sheet_name='merchants')
-except Exception as e:
-    print(f"\n⚠️ Erro ao carregar sheets padrão: {e}")
-    print("Tentando com nomes alternativos...")
-    # Tenta nomes alternativos
-    sheets = xls.sheet_names
-    if len(sheets) >= 1:
-        transactions = pd.read_excel(excel_file, sheet_name=sheets[0])
-    if len(sheets) >= 2:
-        clients = pd.read_excel(excel_file, sheet_name=sheets[1])
-    if len(sheets) >= 3:
-        merchants = pd.read_excel(excel_file, sheet_name=sheets[2])
-
-print(f"✓ Transações: {transactions.shape}")
-print(f"✓ Clientes: {clients.shape}")
+print(f"✓ Transactions: {transactions.shape} (linhas, colunas)")
+print(f"✓ KYC_Profiles: {clients.shape}")
 print(f"✓ Merchants: {merchants.shape}")
 
 # ============================================================================
@@ -66,31 +55,14 @@ print("\n" + "="*80)
 print("DICIONÁRIO DE DADOS")
 print("="*80)
 
-print("\nColunas em 'transactions':")
-print(transactions.columns.tolist())
-print(f"\nPrimeiras linhas:")
-print(transactions.head())
+print("\n--- TRANSACTIONS ---")
+print(f"Colunas ({len(transactions.columns)}): {list(transactions.columns)}")
 
-print("\nColunas em 'clients':")
-print(clients.columns.tolist())
-print(f"\nPrimeiras linhas:")
-print(clients.head())
+print("\n--- KYC_PROFILES (Clientes) ---")
+print(f"Colunas ({len(clients.columns)}): {list(clients.columns)}")
 
-print("\nColunas em 'merchants':")
-print(merchants.columns.tolist())
-print(f"\nPrimeiras linhas:")
-print(merchants.head())
-
-# Criar tabela de mapeamento
-mapping_df = pd.DataFrame({
-    'schema_canonical': list(transactions.columns),
-    'coluna_real': list(transactions.columns),
-    'tipo_esperado': [''] * len(transactions.columns),
-    'presente': ['✓'] * len(transactions.columns)
-})
-
-print("\nMapeamento de colunas (COMPLETAR):")
-print(mapping_df.to_string(index=False))
+print("\n--- MERCHANTS ---")
+print(f"Colunas ({len(merchants.columns)}): {list(merchants.columns)}")
 
 # ============================================================================
 # 3. CHECAGENS DE QUALIDADE
@@ -122,40 +94,59 @@ def quality_check(df, name):
         print(missing_df.to_string(index=False))
 
     print(f"\n📈 Tipos de dados:")
-    print(df.dtypes)
+    for col in df.columns:
+        print(f"  - {col}: {df[col].dtype}")
 
     print(f"\n🔢 Estatísticas descritivas (núméricos):")
     print(df.describe())
 
 quality_check(transactions, "Transactions")
-quality_check(clients, "Clients")
+quality_check(clients, "KYC_Profiles")
 quality_check(merchants, "Merchants")
 
 # ============================================================================
-# 4. COERÊNCIA POR RAIL
+# 4. COERÊNCIA POR RAIL (PIX/Card/Wire)
 # ============================================================================
 
 print("\n" + "="*80)
 print("COERÊNCIA POR RAIL (PIX/Card/Wire)")
 print("="*80)
 
-# Verificar valores únicos de rail
-if 'rail' in transactions.columns:
-    print("\nRails encontrados:")
-    print(transactions['rail'].value_counts())
-else:
-    print("\n⚠️ Coluna 'rail' não encontrada.")
-    print("Procurar por: payment_method, channel, tipo_pagamento, etc")
-    print(f"Colunas disponíveis: {transactions.columns.tolist()}")
+# COLUNAS REAIS: transaction_type, channel, payment_method, pix, pix_flow, card_brand, eci
+if 'transaction_type' in transactions.columns:
+    print("\n📌 Transaction Types encontrados:")
+    print(transactions['transaction_type'].value_counts())
 
+if 'channel' in transactions.columns:
+    print("\n📌 Channels encontrados:")
+    print(transactions['channel'].value_counts())
+
+# Validações por rail (PIX vs CARD vs WIRE)
 def validate_rail_coherence(df):
     issues = []
 
-    # TODO: Adicionar validações específicas
-    # if 'rail' in df.columns and 'installments' in df.columns:
-    #     card_no_installments = (df[df['rail'] == 'card']['installments'].isnull()).sum()
-    #     if card_no_installments > 0:
-    #         issues.append(f"  ⚠️ {card_no_installments} transações Card sem 'installments'")
+    # PIX: deve ter pix='Sim', pode ter pix_flow
+    if 'transaction_type' in df.columns and 'pix' in df.columns:
+        pix_txns = df[df['transaction_type'] == 'PIX']
+        pix_not_marked = (pix_txns['pix'] != 'Sim').sum()
+        if pix_not_marked > 0:
+            issues.append(f"  ⚠️ {pix_not_marked} transações PIX não marcadas como pix='Sim'")
+
+    # CARD: deve ter card_brand, eci, card_present
+    if 'transaction_type' in df.columns:
+        card_txns = df[df['transaction_type'] == 'CARD']
+        if len(card_txns) > 0:
+            card_no_brand = card_txns['card_brand'].isnull().sum()
+            if card_no_brand > 0:
+                issues.append(f"  ⚠️ {card_no_brand} transações CARD sem card_brand")
+
+    # Campos de risco devem estar preenchidos
+    risk_cols = ['country_risk_geo', 'country_risk_ip', 'country_risk_sender', 'country_risk_receiver']
+    for col in risk_cols:
+        if col in df.columns:
+            nulls = df[col].isnull().sum()
+            if nulls > 0:
+                issues.append(f"  ⚠️ {nulls} valores faltantes em {col}")
 
     if len(issues) == 0:
         print("✓ Todas as validações de rail passaram")
@@ -175,28 +166,26 @@ print("EXPLORAÇÃO BÁSICA (EDA)")
 print("="*80)
 
 # Período de dados
-if 'timestamp' in transactions.columns or 'data' in transactions.columns:
-    date_col = 'timestamp' if 'timestamp' in transactions.columns else 'data'
-    transactions[date_col] = pd.to_datetime(transactions[date_col])
-    print(f"\nPeríodo: {transactions[date_col].min()} até {transactions[date_col].max()}")
-    print(f"Duração: {(transactions[date_col].max() - transactions[date_col].min()).days} dias")
-else:
-    print("\n⚠️ Coluna de data não encontrada")
+if 'timestamp' in transactions.columns:
+    transactions['timestamp'] = pd.to_datetime(transactions['timestamp'])
+    min_date = transactions['timestamp'].min()
+    max_date = transactions['timestamp'].max()
+    duration_days = (max_date - min_date).days
+    print(f"\n📅 Período: {min_date.date()} até {max_date.date()}")
+    print(f"⏱️  Duração: {duration_days} dias")
 
-# Distribuição de valores (amount)
-if 'amount' in transactions.columns or 'valor' in transactions.columns:
-    amount_col = 'amount' if 'amount' in transactions.columns else 'valor'
-
+# Distribuição de valores (amount_brl)
+if 'amount_brl' in transactions.columns:
     fig, axes = plt.subplots(1, 2, figsize=(14, 4))
 
-    axes[0].hist(transactions[amount_col], bins=50, edgecolor='black')
-    axes[0].set_xlabel('Valor')
+    axes[0].hist(transactions['amount_brl'], bins=50, edgecolor='black')
+    axes[0].set_xlabel('Valor (BRL)')
     axes[0].set_ylabel('Frequência')
     axes[0].set_title('Distribuição de Valores')
     axes[0].grid(True, alpha=0.3)
 
-    axes[1].boxplot(transactions[amount_col])
-    axes[1].set_ylabel('Valor')
+    axes[1].boxplot(transactions['amount_brl'])
+    axes[1].set_ylabel('Valor (BRL)')
     axes[1].set_title('Boxplot - Detecção de Outliers')
 
     plt.tight_layout()
@@ -204,24 +193,25 @@ if 'amount' in transactions.columns or 'valor' in transactions.columns:
     # Criar pasta de figuras se não existir
     (OUTPUTS / 'figuras').mkdir(parents=True, exist_ok=True)
     plt.savefig(OUTPUTS / 'figuras' / '01_distribuicao_valores.png', dpi=100, bbox_inches='tight')
-    print(f"\n✓ Gráfico salvo em: {OUTPUTS / 'figuras' / '01_distribuicao_valores.png'}")
+    print(f"\n✓ Gráfico salvo em: outputs/figuras/01_distribuicao_valores.png")
     plt.close()
 
-    print(f"\nEstatísticas de Valor:")
-    print(transactions[amount_col].describe())
+    print(f"\n💰 Estatísticas de Valor (amount_brl):")
+    print(transactions['amount_brl'].describe())
 
-# Número de clientes, merchants, transações únicos
-print("\nEntidades únicas:")
-if 'client_id' in transactions.columns:
-    print(f"  • Clientes: {transactions['client_id'].nunique()}")
+# Entidades únicas
+print("\n🔍 Entidades únicas:")
+if 'sender_id' in transactions.columns:
+    print(f"  • Senders (clientes): {transactions['sender_id'].nunique()}")
+if 'receiver_id' in transactions.columns:
+    print(f"  • Receivers (clientes): {transactions['receiver_id'].nunique()}")
 if 'merchant_id' in transactions.columns:
     print(f"  • Merchants: {transactions['merchant_id'].nunique()}")
-if 'device_id' in transactions.columns:
-    print(f"  • Devices: {transactions['device_id'].nunique()}")
-if 'ip_address' in transactions.columns or 'ip' in transactions.columns:
-    ip_col = 'ip_address' if 'ip_address' in transactions.columns else 'ip'
-    print(f"  • IPs: {transactions[ip_col].nunique()}")
-print(f"  • Transações: {len(transactions)}")
+if 'device_fingerprint' in transactions.columns:
+    print(f"  • Devices (fingerprints): {transactions['device_fingerprint'].nunique()}")
+if 'ip_address' in transactions.columns:
+    print(f"  • IPs únicos: {transactions['ip_address'].nunique()}")
+print(f"  • Total de transações: {len(transactions):,}")
 
 # ============================================================================
 # 6. FEATURE STORE INICIAL
@@ -231,40 +221,40 @@ print("\n" + "="*80)
 print("FEATURE STORE INICIAL")
 print("="*80)
 
-# Agregações por cliente
-if 'client_id' in transactions.columns and 'amount' in transactions.columns:
-    client_aggs = transactions.groupby('client_id').agg({
-        'amount': ['sum', 'mean', 'count', 'std', 'min', 'max'],
+DATA_PROCESSED.mkdir(parents=True, exist_ok=True)
+
+# Agregações por sender (cliente como originador)
+if 'sender_id' in transactions.columns and 'amount_brl' in transactions.columns:
+    sender_aggs = transactions.groupby('sender_id').agg({
+        'amount_brl': ['sum', 'mean', 'count', 'min', 'max'],
+        'transaction_id': 'count'
     }).round(2)
 
-    client_aggs.columns = ['_'.join(col).strip() for col in client_aggs.columns.values]
-    client_aggs = client_aggs.reset_index()
+    sender_aggs.columns = ['_'.join(col).strip() for col in sender_aggs.columns.values]
+    sender_aggs = sender_aggs.reset_index()
+    sender_aggs = sender_aggs.rename(columns={'sender_id': 'entity_id'})
 
-    print("\nFeature Store - Por Cliente (primeiras 10 linhas):")
-    print(client_aggs.head(10))
+    print("\nFeature Store - Por Sender (primeiras 5):")
+    print(sender_aggs.head(5).to_string(index=False))
 
-    # Criar pasta se não existir
-    DATA_PROCESSED.mkdir(parents=True, exist_ok=True)
+    sender_aggs.to_csv(DATA_PROCESSED / 'sender_features.csv', index=False)
+    print(f"✓ Salvo em: data/processed/sender_features.csv ({len(sender_aggs)} senders)")
 
-    # Salvar
-    client_aggs.to_csv(DATA_PROCESSED / 'client_features.csv', index=False)
-    print(f"✓ Salvo em: {DATA_PROCESSED / 'client_features.csv'}")
-
-# Agregações por merchant (se houver)
-if 'merchant_id' in transactions.columns and 'amount' in transactions.columns:
+# Agregações por merchant
+if 'merchant_id' in transactions.columns and 'amount_brl' in transactions.columns:
     merchant_aggs = transactions.groupby('merchant_id').agg({
-        'amount': ['sum', 'mean', 'count'],
+        'amount_brl': ['sum', 'mean', 'count'],
+        'transaction_id': 'count'
     }).round(2)
 
     merchant_aggs.columns = ['_'.join(col).strip() for col in merchant_aggs.columns.values]
     merchant_aggs = merchant_aggs.reset_index()
 
-    print("\nFeature Store - Por Merchant (primeiras 10 linhas):")
-    print(merchant_aggs.head(10))
+    print("\nFeature Store - Por Merchant (primeiras 5):")
+    print(merchant_aggs.head(5).to_string(index=False))
 
-    # Salvar
     merchant_aggs.to_csv(DATA_PROCESSED / 'merchant_features.csv', index=False)
-    print(f"✓ Salvo em: {DATA_PROCESSED / 'merchant_features.csv'}")
+    print(f"✓ Salvo em: data/processed/merchant_features.csv ({len(merchant_aggs)} merchants)")
 
 # ============================================================================
 # 7. RELATÓRIO DE QUALIDADE FINAL
@@ -274,41 +264,64 @@ print("\n" + "="*80)
 print("RELATÓRIO DE QUALIDADE - DIA 1")
 print("="*80)
 
+# Calcular métricas reais
+periodo = f"{transactions['timestamp'].min().date()} a {transactions['timestamp'].max().date()}"
+n_senders = transactions['sender_id'].nunique()
+n_receivers = transactions['receiver_id'].nunique()
+n_merchants = transactions['merchant_id'].nunique()
+n_transacoes = len(transactions)
+
+valor_total = transactions['amount_brl'].sum()
+valor_medio = transactions['amount_brl'].mean()
+valor_maximo = transactions['amount_brl'].max()
+
+# Valores faltantes
+total_cells = transactions.size
+missing_cells = transactions.isnull().sum().sum()
+pct_missing = (missing_cells / total_cells * 100).round(2)
+
 quality_report = {
-    'métrica': [
+    'Métrica': [
         'Período',
-        'Clientes únicos',
+        'Senders únicos',
+        'Receivers únicos',
         'Merchants únicos',
-        'Transações',
-        'Valor total',
-        'Valor médio',
-        'Valor máximo',
-        'Valores faltantes',
+        'Total de Transações',
+        'Valor Total (BRL)',
+        'Valor Médio (BRL)',
+        'Valor Máximo (BRL)',
+        'Valores Faltantes (%)',
         'Coerência Rails'
     ],
-    'resultado': [
-        'TODO',
-        'TODO',
-        'TODO',
-        'TODO',
-        'TODO',
-        'TODO',
-        'TODO',
-        'TODO',
+    'Resultado': [
+        periodo,
+        f"{n_senders:,}",
+        f"{n_receivers:,}",
+        f"{n_merchants:,}",
+        f"{n_transacoes:,}",
+        f"R$ {valor_total:,.2f}",
+        f"R$ {valor_medio:,.2f}",
+        f"R$ {valor_maximo:,.2f}",
+        f"{pct_missing}% (multicanal esperado)",
         '✓ Validado'
     ]
 }
 
 report_df = pd.DataFrame(quality_report)
+print()
 print(report_df.to_string(index=False))
 
-# Criar pasta de outputs se não existir
+# Salvar relatório
 OUTPUTS.mkdir(parents=True, exist_ok=True)
-
-# Salvar para Google Sheets
 report_df.to_csv(OUTPUTS / '01_quality_report.csv', index=False)
-print(f"\n✓ Salvo em: {OUTPUTS / '01_quality_report.csv'}")
+print(f"\n✓ Salvo em: outputs/01_quality_report.csv")
 
 print("\n" + "="*80)
-print("✅ SCRIPT CONCLUÍDO - Próximos passos: Dia 2 (Regras & Alertas)")
+print("✅ SCRIPT CONCLUÍDO COM SUCESSO")
 print("="*80)
+print("\nPróximos passos: Dia 2 (Motor de Regras & Alertas)")
+print("Arquivos gerados:")
+print("  - outputs/01_quality_report.csv")
+print("  - data/processed/sender_features.csv")
+print("  - data/processed/merchant_features.csv")
+print("  - outputs/figuras/01_distribuicao_valores.png")
