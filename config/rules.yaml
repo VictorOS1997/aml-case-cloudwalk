@@ -1,0 +1,104 @@
+# Configuração de limiares para o sistema de alertas AML
+# Todos os valores devem ser ajustados conforme análise dos dados (Dia 2)
+
+rules:
+  # R01: Burst de transações (muitas transações em janela curta)
+  r01_burst_count:
+    transaction_threshold: 10
+    time_window_hours: 24
+    severity: medium
+
+  # R02: Taxa de transações por hora
+  r02_transaction_rate:
+    max_per_hour: 15
+    severity: medium
+
+  # R03: Structuring (valores logo abaixo de limiar)
+  r03_structuring:
+    target_amount: 10000  # Limiar típico de reporte
+    tolerance_percentage: 10
+    time_window_days: 30
+    min_transactions: 5
+    severity: high
+
+  # R04: Renda incompatível
+  r04_income_mismatch:
+    income_to_transaction_ratio: 5  # Transação não pode ser > 5x da renda mensal
+    severity: high
+
+  # R05-R06: Geo-salto
+  r05_geo_impossibility:
+    max_speed_kmh: 900  # Velocidade máxima aceitável (velocidade avião)
+    time_window_minutes: 30
+    severity: high
+
+  # R07-R08: Device/IP ring
+  r07_device_ring:
+    min_clients_same_device: 5  # Se X+ clientes usam mesmo device
+    severity: high
+
+  r08_ip_ring:
+    min_clients_same_ip: 5
+    severity: high
+
+  # R09: Self-merchant
+  r09_self_merchant:
+    severity: high
+
+  # R10-R11: Cash-in → cash-out
+  r10_cash_velocity:
+    time_window_hours: 24
+    ratio_threshold: 0.9  # Saída >= 90% da entrada
+    severity: medium
+
+  r11_cash_out_fast:
+    time_window_hours: 1
+    severity: medium
+
+  # R12-R13: E-commerce sem 3DS
+  r12_ccard_high_value_no3ds:
+    amount_threshold: 5000
+    severity: medium
+
+  r13_ccard_no_authentication:
+    severity: medium
+
+  # R14-R15: País de alto risco / Sanções
+  r14_high_risk_country:
+    severity: high
+
+  r15_sanctions_list:
+    severity: critical
+
+  # R16-R17: PEP / MCC
+  r16_pep_flag:
+    severity: critical
+
+  r17_high_risk_mcc:
+    risk_mccs: [6011, 7995, 6051, 7298]  # Exemplos: financiadoras, joias, clínicas
+    severity: high
+
+  # R18: Chargeback de merchant
+  r18_merchant_chargeback:
+    chargeback_rate_threshold: 0.05  # 5%
+    severity: high
+
+  # R20-R22: Variações de velocidade e reuso
+  r20_burst_high_value:
+    amount_threshold: 50000
+    count_threshold: 3
+    time_window_hours: 24
+    severity: high
+
+  r21_structuring_card:
+    amount_threshold: 9900
+    severity: high
+
+  r22_device_reuse:
+    severity: high
+
+# Configuração geral
+general:
+  min_severity_to_report: medium  # medium | high | critical
+  enable_weak_label: true
+  weak_label_threshold: 2  # Mínimo de rules-core para marcar como positivo

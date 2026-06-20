@@ -216,3 +216,20 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Project specific
+data/raw/
+data/processed/*.csv
+outputs/figuras/
+outputs/alertas/*.csv
+outputs/sar/
+relatorio/*.docx
+relatorio/*.pdf
+apresentacao/link.txt
+.env.local
+
+# Large files
+*.pkl
+*.pickle
+*.h5
+*.model
