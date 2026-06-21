@@ -1,104 +1,147 @@
-# Configuração de limiares para o sistema de alertas AML
-# Todos os valores devem ser ajustados conforme análise dos dados (Dia 2)
+# Configuração de limiares do Motor de Regras AML-FT
+# Valores calibrados para a base real (Dia 2 — 2026-06-21)
+# Referência: referencias/catalogo-regras.md
 
 rules:
-  # R01: Burst de transações (muitas transações em janela curta)
-  r01_burst_count:
-    transaction_threshold: 10
-    time_window_hours: 24
-    severity: medium
+  # R01: Burst de velocidade (muitas transações em janela curta)
+  r01_velocity:
+    n_transactions: 8       # ≥8 tx em janela
+    window_minutes: 30      # janela de 30 minutos
+    severity: 2             # média
 
-  # R02: Taxa de transações por hora
-  r02_transaction_rate:
-    max_per_hour: 15
-    severity: medium
+  # R02: Burst de valor em janela curta
+  r02_burst_value:
+    threshold_brl: 50000    # soma >R$50k
+    window_minutes: 60      # janela de 60 minutos
+    severity: 2
 
-  # R03: Structuring (valores logo abaixo de limiar)
+  # R03★: Structuring PIX — valores logo abaixo de R$10k
   r03_structuring:
-    target_amount: 10000  # Limiar típico de reporte
-    tolerance_percentage: 10
-    time_window_days: 30
-    min_transactions: 5
-    severity: high
+    k_transactions: 3       # ≥3 transações
+    amount_low: 9000        # faixa [R$9k, R$10k]
+    amount_high: 10000
+    window_days: 7          # em 7 dias
+    severity: 3             # alta ★ core
 
   # R04: Renda incompatível
   r04_income_mismatch:
-    income_to_transaction_ratio: 5  # Transação não pode ser > 5x da renda mensal
-    severity: high
+    income_multiplier: 15   # >15× renda mensal
+    severity: 2
 
-  # R05-R06: Geo-salto
-  r05_geo_impossibility:
-    max_speed_kmh: 900  # Velocidade máxima aceitável (velocidade avião)
-    time_window_minutes: 30
-    severity: high
+  # R05: Geo-salto (distância impossível)
+  r05_geojump:
+    km_threshold: 500       # ≥500 km
+    hours_threshold: 12     # em ≤12 horas
+    severity: 3
 
-  # R07-R08: Device/IP ring
+  # R06: IP anômalo / país de alto risco
+  r06_ip_anomaly:
+    flag_proxy_vpn_tor: true
+    flag_high_risk_country: true
+    severity: 2
+
+  # R07★: Device ring (fazenda de contas)
   r07_device_ring:
-    min_clients_same_device: 5  # Se X+ clientes usam mesmo device
-    severity: high
+    min_clients_per_device: 6   # ≥6 clientes no mesmo device
+    window_days: 1              # por dia
+    severity: 3                 # alta ★ core
 
+  # R08: IP ring
   r08_ip_ring:
-    min_clients_same_ip: 5
-    severity: high
+    min_clients_per_ip: 6       # ≥6 clientes no mesmo IP
+    window_days: 1
+    severity: 3
 
-  # R09: Self-merchant
+  # R09★: Self-merchant (cliente paga seu próprio merchant)
   r09_self_merchant:
-    severity: high
+    severity: 4             # crítica ★ core
 
-  # R10-R11: Cash-in → cash-out
-  r10_cash_velocity:
-    time_window_hours: 24
-    ratio_threshold: 0.9  # Saída >= 90% da entrada
-    severity: medium
+  # R10: Cash-in → cash-out rápido (layering)
+  r10_cash_in_out:
+    ratio_threshold: 0.80   # saída ≥80% da entrada
+    floor_brl: 1000         # mínimo de entrada para contar
+    window_hours: 24        # janela (aproximada por dia)
+    severity: 3
 
-  r11_cash_out_fast:
-    time_window_hours: 1
-    severity: medium
+  # R11: Fan-out (dispersão para muitas contrapartes)
+  r11_fan_out:
+    min_receivers: 10       # ≥10 receivers distintos
+    window_hours: 24
+    severity: 2
 
-  # R12-R13: E-commerce sem 3DS
-  r12_ccard_high_value_no3ds:
-    amount_threshold: 5000
-    severity: medium
+  # R12★: E-commerce card sem 3DS de alto valor
+  r12_ecom_no_3ds:
+    amount_threshold_brl: 2000  # ≥R$2k
+    capture_methods: ['E-commerce']
+    severity: 3             # alta ★ core
 
-  r13_ccard_no_authentication:
-    severity: medium
+  # R13: ECI suspeito em cross-border
+  r13_eci_cross_border:
+    suspect_eci_min: 7      # ECI ≥7 = não autenticado
+    severity: 2
 
-  # R14-R15: País de alto risco / Sanções
-  r14_high_risk_country:
-    severity: high
+  # R14: Cross-border de alto valor
+  r14_cross_border_high:
+    amount_threshold_brl: 20000  # >R$20k
+    severity: 2
 
-  r15_sanctions_list:
-    severity: critical
+  # R15★: Sanções (transação, KYC ou país de alto risco)
+  r15_sanctions:
+    severity_sanctions_hit: 4   # crítica ★ core
+    severity_high_risk_country: 3
 
-  # R16-R17: PEP / MCC
-  r16_pep_flag:
-    severity: critical
+  # R16: PEP com atividade incompatível
+  r16_pep:
+    income_multiplier: 10   # >10× renda mensal
+    severity: 3
 
+  # R17: MCC de alto risco
   r17_high_risk_mcc:
-    risk_mccs: [6011, 7995, 6051, 7298]  # Exemplos: financiadoras, joias, clínicas
-    severity: high
+    risk_mccs: [6011, 6051, 7995, 4829, 6012]
+    severity: 2
 
-  # R18: Chargeback de merchant
-  r18_merchant_chargeback:
-    chargeback_rate_threshold: 0.05  # 5%
-    severity: high
+  # R18: Chargeback de merchant elevado
+  r18_chargeback_merchant:
+    chargeback_rate_threshold: 0.02  # >2% (90d)
+    severity: 2
 
-  # R20-R22: Variações de velocidade e reuso
-  r20_burst_high_value:
-    amount_threshold: 50000
-    count_threshold: 3
-    time_window_hours: 24
-    severity: high
+  # R19: Parcelamento atípico
+  r19_installments_atypical:
+    min_installments: 12    # ≥12 parcelas
+    max_amount_brl: 500     # em valor baixo
+    severity: 1             # baixa
 
-  r21_structuring_card:
-    amount_threshold: 9900
-    severity: high
+  # R20: Conta nova com alta atividade
+  r20_new_account:
+    max_account_age_days: 7     # conta com <7 dias
+    amount_threshold_brl: 10000 # total enviado >R$10k
+    n_tx_threshold: 5           # ou ≥5 transações
+    severity: 2
 
-  r22_device_reuse:
-    severity: high
+  # R21: Valores redondos repetidos
+  r21_round_values:
+    k_transactions: 5       # ≥5 transações redondas
+    round_multiple: 1000    # múltiplo de R$1k
+    window_days: 7
+    severity: 1
+
+  # R22: Card reuso em múltiplos devices
+  r22_card_multidevice:
+    min_devices: 4          # ≥4 devices distintos
+    window_days: 1
+    severity: 3
+
+# Regras-core (rótulo fraco para ML — Dia 4)
+core_rules:
+  - R03_structuring
+  - R07_device_ring
+  - R09_self_merchant
+  - R12_ecom_no_3ds
+  - R15_sanctions
 
 # Configuração geral
 general:
-  min_severity_to_report: medium  # medium | high | critical
+  min_severity_to_report: 2       # medium e acima
   enable_weak_label: true
-  weak_label_threshold: 2  # Mínimo de rules-core para marcar como positivo
+  weak_label_min_core_rules: 2    # ≥2 regras-core para positivo fraco
+  seed: 42
