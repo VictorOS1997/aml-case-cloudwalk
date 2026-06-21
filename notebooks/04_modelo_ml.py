@@ -563,7 +563,188 @@ if len(idx_sar):
     print(f"\n  C101208 — XGB score: {c_xgb:.4f} | IF score: {c_if:.4f} | Final: {c_fin:.4f}")
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 14. Relatório técnico em Markdown
+# 14. Validação Rigorosa — K-Fold CV + Permutation Test + Calibração + Learning Curve
+# ─────────────────────────────────────────────────────────────────────────────
+print("\n[12] Validação rigorosa das métricas...")
+
+from sklearn.model_selection import StratifiedKFold
+from sklearn.calibration import calibration_curve
+
+SKF = StratifiedKFold(n_splits=5, shuffle=True, random_state=SEED)
+
+# Modelo simplificado para CV e permutation test (sem early stopping para ser determinístico)
+xgb_cv_base = xgb.XGBClassifier(
+    n_estimators=50,  # conservador para velocidade; early stopping não é usado em CV
+    max_depth=4,
+    learning_rate=0.05,
+    subsample=0.8,
+    colsample_bytree=0.8,
+    scale_pos_weight=scale_pw,
+    use_label_encoder=False,
+    random_state=SEED,
+    n_jobs=-1,
+    verbosity=0,
+)
+
+# ── 14a. 5-fold Stratified Cross-Validation ───────────────────────────────
+print("  14a. 5-fold Stratified CV...")
+cv_roc, cv_pr = [], []
+
+for fold, (tr_idx, val_idx) in enumerate(SKF.split(X, y)):
+    X_cv_tr, X_cv_val = X.iloc[tr_idx], X.iloc[val_idx]
+    y_cv_tr, y_cv_val = y[tr_idx], y[val_idx]
+
+    if y_cv_val.sum() < 2:  # fold sem positivos suficientes
+        print(f"    Fold {fold+1}: pulado (apenas {y_cv_val.sum()} positivo(s) no val)")
+        continue
+
+    xgb_cv_base.fit(X_cv_tr, y_cv_tr, verbose=False)
+    y_cv_prob = xgb_cv_base.predict_proba(X_cv_val)[:, 1]
+
+    cv_roc.append(roc_auc_score(y_cv_val, y_cv_prob))
+    cv_pr.append(average_precision_score(y_cv_val, y_cv_prob))
+    print(f"    Fold {fold+1}: ROC={cv_roc[-1]:.4f}  PR={cv_pr[-1]:.4f}  (n_pos={y_cv_val.sum()})")
+
+cv_roc_mean, cv_roc_std = np.mean(cv_roc), np.std(cv_roc)
+cv_pr_mean,  cv_pr_std  = np.mean(cv_pr),  np.std(cv_pr)
+print(f"\n  CV ROC-AUC : {cv_roc_mean:.4f} ± {cv_roc_std:.4f}")
+print(f"  CV PR-AUC  : {cv_pr_mean:.4f}  ± {cv_pr_std:.4f}")
+print(f"  Baseline PR-AUC (acaso) : {y.mean():.4f}")
+print(f"  Ganho sobre baseline    : {cv_pr_mean / y.mean():.1f}×")
+
+# ── 14b. Permutation Test ─────────────────────────────────────────────────
+print("\n  14b. Permutation Test (15 permutações × 5 folds)...")
+N_PERMS = 15
+perm_pr_scores = []
+
+for p in range(N_PERMS):
+    y_perm = np.random.permutation(y)
+    fold_pr = []
+    for tr_idx, val_idx in SKF.split(X, y):  # split estrutura fixa; labels permutados
+        X_cv_tr, X_cv_val = X.iloc[tr_idx], X.iloc[val_idx]
+        y_cv_tr, y_cv_val = y_perm[tr_idx], y_perm[val_idx]
+        if y_cv_val.sum() < 2:
+            continue
+        xgb_cv_base.fit(X_cv_tr, y_cv_tr, verbose=False)
+        y_cv_prob = xgb_cv_base.predict_proba(X_cv_val)[:, 1]
+        fold_pr.append(average_precision_score(y_cv_val, y_cv_prob))
+    if fold_pr:
+        perm_pr_scores.append(np.mean(fold_pr))
+
+perm_pr_mean = np.mean(perm_pr_scores)
+p_value = np.mean([s >= cv_pr_mean for s in perm_pr_scores])
+print(f"  PR-AUC real (CV)     : {cv_pr_mean:.4f}")
+print(f"  PR-AUC perm (média)  : {perm_pr_mean:.4f}")
+print(f"  p-value              : {p_value:.3f}  {'✓ significativo' if p_value < 0.05 else '✗ não significativo'}")
+print(f"  Interpretação: se p<0.05, o modelo aprende sinal real (não memoriza ruído)")
+
+# ── 14c. Calibração do modelo (conj. de teste) ────────────────────────────
+print("\n  14c. Calibração do modelo...")
+if y_test.sum() >= 5:
+    n_bins_cal = 5
+    prob_true_cal, prob_pred_cal = calibration_curve(
+        y_test, y_prob_test, n_bins=n_bins_cal, strategy="quantile"
+    )
+    cal_error = np.mean(np.abs(prob_true_cal - prob_pred_cal))
+    print(f"  Calibration Error médio: {cal_error:.4f}")
+    print(f"  (0=perfeito | >0.1 indica scores mal calibrados)")
+    cal_ok = True
+else:
+    print("  Teste com poucos positivos — calibração não confiável com este split")
+    cal_ok = False
+
+# ── 14d. Learning Curve (performance vs tamanho do treino) ────────────────
+print("\n  14d. Learning Curve...")
+train_fracs = [0.20, 0.40, 0.60, 0.80, 1.00]
+lc_train_pr, lc_test_pr = [], []
+
+for frac in train_fracs:
+    n = max(int(len(X_train) * frac), y_train.sum() + 1)  # garante todos os pos
+    X_sub = X_train.iloc[:n]
+    y_sub = y_train[:n]
+    if y_sub.sum() < 2:
+        lc_train_pr.append(np.nan)
+        lc_test_pr.append(np.nan)
+        continue
+
+    sp_train = (y_sub == 0).sum() / max(y_sub.sum(), 1)
+    xgb_lc = xgb.XGBClassifier(
+        n_estimators=50, max_depth=4, learning_rate=0.05,
+        subsample=0.8, colsample_bytree=0.8,
+        scale_pos_weight=sp_train,
+        use_label_encoder=False, random_state=SEED, n_jobs=-1, verbosity=0,
+    )
+    xgb_lc.fit(X_sub, y_sub, verbose=False)
+
+    lc_train_pr.append(average_precision_score(y_sub, xgb_lc.predict_proba(X_sub)[:, 1]))
+    if y_test.sum() >= 2:
+        lc_test_pr.append(average_precision_score(y_test, xgb_lc.predict_proba(X_test)[:, 1]))
+    else:
+        lc_test_pr.append(np.nan)
+
+    print(f"    {int(frac*100):3d}% treino ({n:,} samples): train={lc_train_pr[-1]:.4f} | test={lc_test_pr[-1]:.4f}")
+
+# ── 14e. Gráficos de Validação ────────────────────────────────────────────
+print("\n  Gerando gráficos de validação...")
+
+# Boxplot CV scores
+fig, axes = plt.subplots(1, 3, figsize=(15, 4))
+
+axes[0].boxplot([cv_roc, cv_pr], tick_labels=["ROC-AUC", "PR-AUC"], patch_artist=True,
+                boxprops=dict(facecolor=PALETTE["main"], alpha=0.6))
+axes[0].axhline(y.mean(), color="gray", ls="--", lw=1, label=f"Baseline ({y.mean():.3f})")
+axes[0].set_title("Distribuição das Métricas\n5-Fold CV", fontsize=12, fontweight="bold")
+axes[0].set_ylabel("Score"); axes[0].legend(fontsize=9)
+for i, (scores, label) in enumerate([(cv_roc, "ROC"), (cv_pr, "PR")]):
+    axes[0].text(i + 1, np.mean(scores) + 0.02, f"μ={np.mean(scores):.3f}", ha="center", fontsize=9)
+
+# Permutation test distribution
+axes[1].hist(perm_pr_scores, bins=8, color=PALETTE["neg"], alpha=0.7, edgecolor="white",
+             label=f"PR-AUC (labels aleatórios)\nn={N_PERMS} permutações")
+axes[1].axvline(cv_pr_mean, color=PALETTE["pos"], lw=2.5, label=f"PR-AUC real = {cv_pr_mean:.4f}")
+axes[1].axvline(y.mean(), color="gray", ls="--", lw=1.5, label=f"Baseline = {y.mean():.4f}")
+axes[1].set_xlabel("PR-AUC"); axes[1].set_ylabel("Frequência")
+axes[1].set_title(f"Permutation Test\np-valor = {p_value:.3f}", fontsize=12, fontweight="bold")
+axes[1].legend(fontsize=8)
+
+# Learning curve
+n_train_sizes = [int(len(X_train) * f) for f in train_fracs]
+valid_idx = [i for i, v in enumerate(lc_test_pr) if not np.isnan(v)]
+axes[2].plot([n_train_sizes[i] for i in valid_idx],
+             [lc_train_pr[i] for i in valid_idx],
+             "o-", color=PALETTE["main"], lw=2, label="Treino (PR-AUC)")
+axes[2].plot([n_train_sizes[i] for i in valid_idx],
+             [lc_test_pr[i] for i in valid_idx],
+             "s--", color=PALETTE["pos"], lw=2, label="Teste (PR-AUC)")
+axes[2].axhline(y.mean(), color="gray", ls=":", lw=1, label=f"Baseline")
+axes[2].set_xlabel("Nº de amostras de treino"); axes[2].set_ylabel("PR-AUC")
+axes[2].set_title("Curva de Aprendizado", fontsize=12, fontweight="bold")
+axes[2].legend(fontsize=9)
+
+plt.suptitle("Validação do Modelo XGBoost — CloudWalk AML", fontsize=13, fontweight="bold")
+plt.tight_layout()
+plt.savefig(os.path.join(OUT_FIG, "04_validacao.png"), dpi=150, bbox_inches="tight")
+plt.close()
+print("  04_validacao.png")
+
+# Calibration curve (se disponível)
+if cal_ok:
+    fig, ax = plt.subplots(figsize=(6, 5))
+    ax.plot(prob_pred_cal, prob_true_cal, "o-", color=PALETTE["pos"], lw=2, ms=8,
+            label=f"XGBoost (erro médio={cal_error:.3f})")
+    ax.plot([0, 1], [0, 1], "k--", lw=1.5, alpha=0.5, label="Calibração perfeita")
+    ax.fill_between([0, 1], [0, 1], alpha=0.05, color="gray")
+    ax.set_xlabel("Score previsto pelo modelo", fontsize=11)
+    ax.set_ylabel("Proporção real de positivos", fontsize=11)
+    ax.set_title("Curva de Calibração\n(Reliability Diagram)", fontsize=12, fontweight="bold")
+    ax.legend(fontsize=10); ax.set_xlim(0, 1); ax.set_ylim(0, 1.05)
+    plt.tight_layout()
+    plt.savefig(os.path.join(OUT_FIG, "04_calibracao.png"), dpi=150, bbox_inches="tight")
+    plt.close()
+    print("  04_calibracao.png")
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 15. Relatório técnico em Markdown
 # ─────────────────────────────────────────────────────────────────────────────
 print("\n[12] Gerando relatório técnico...")
 
