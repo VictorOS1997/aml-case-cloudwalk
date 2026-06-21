@@ -220,6 +220,8 @@ __marimo__/
 # Project specific
 data/raw/
 data/processed/*.csv
+!data/processed/sender_features.csv
+!data/processed/merchant_features.csv
 outputs/alertas/*.csv
 outputs/sar/
 relatorio/*.docx

@@ -1,10 +1,21 @@
-métrica,resultado
-Período,2025-07-01 a 2025-10-04
-Clientes únicos,"6,982"
-Merchants únicos,0
-Transações,"52,000"
-Valor total,"R$ 230,057,857.58"
-Valor médio,"R$ 4,424.19"
-Valor máximo,"R$ 140,910.35"
-Valores faltantes,13.83% (multicanal esperado)
-Coerência Rails,✓ Validado
+Metrica,Resultado
+Periodo,2025-07-01 a 2025-10-04 (95 dias)
+Total de Transacoes,"52,000"
+Rails (PIX/Card/Wire),"PIX=31,547 | Card=17,930 | Wire=2,523"
+Senders unicos,"3,497"
+Receivers unicos,"3,485"
+Merchant receivers unicos,"1,000"
+Devices unicos,"52,000"
+IPs unicos,"52,000"
+Clientes (KYC_Profiles),"2,500"
+Merchants cadastrados,"1,000"
+Merchants com owner,349 (34.9%)
+Valor total (BRL),"R$ 230,057,857.58"
+Valor medio (BRL),"R$ 4,424.19"
+Valor maximo (BRL),"R$ 140,910.35"
+Cross-border,"10,113 (19.4%)"
+Sancoes hit,2 (0.0%)
+IP anomaly,190 (0.4%)
+Device rooted,"1,562 (3.0%)"
+Valores faltantes (%),13.83% (multicanal -- esperado)
+Coerencia por rail,OK (PIX/Card/Wire coerentes)
