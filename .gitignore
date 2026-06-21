@@ -223,7 +223,7 @@ data/processed/*.csv
 !data/processed/sender_features.csv
 !data/processed/merchant_features.csv
 outputs/alertas/*.csv
-outputs/sar/
+# outputs/sar/  # SARs are deliverables — committed
 relatorio/*.docx
 relatorio/*.pdf
 apresentacao/link.txt
