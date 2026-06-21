@@ -1,211 +1,177 @@
-# CloudWalk AML-FT Case
+# AML-FT Case — CloudWalk
 
-**Detecção de lavagem de dinheiro e financiamento ao terrorismo (PIX, Cartão, Wire)**
+**Detecção de Lavagem de Dinheiro e Financiamento ao Terrorismo (PIX · Cartão · Wire)**
 
-> Projeto desenvolvido para o case AML-FT da CloudWalk, combinando **regras de alertas**, **machine learning** e **sistema multi-agente com LLM** para detecção, investigação e reporte de atividades suspeitas.
-
----
-
-## 📋 Visão Geral
-
-Este repositório implementa um **produto AML (Anti-Money Laundering) completo** que vai da detecção à recomendação de ação, integrando:
-
-- **Tarefa 1:** Identificação de suspeitos + 1 SAR completo
-- **Tarefa 2:** Sistema de alertas (≥15 regras)
-- **Tarefa 3:** Modelo de Machine Learning para priorização de risco
-- **Tarefa 4:** Pipeline multi-agente com LLM para orquestração
-
-**Prazo:** 5 dias | **Escopo:** ≤30 clientes e/ou transações
+> Pipeline AML-FT completo: regras de alerta + ML + sistema multi-agente LLM, da detecção à
+> decisão regulatória — desenvolvido como case técnico para a CloudWalk.
 
 ---
 
-## 🎯 Critérios de Avaliação
+## Resultados em síntese
 
-1. ✅ **Raciocínio investigativo, explicável e reprodutível**
-2. ✅ **Qualidade técnica** — limpeza, coerência por rail, métricas reais
-3. ✅ **Integração de múltiplos sinais** — KYC, transações, device, geo, MCC
-4. ✅ **Orquestração ponta a ponta** — detecção → ação (congelar/monitorar/reportar)
-5. ✅ **Clareza de comunicação** — relatório e apresentação acessíveis
-
----
-
-## 📁 Estrutura do Projeto
-
-```
-cloudwalk-aml-ft/
-├── README.md                  # Este arquivo
-├── requirements.txt           # Dependências (versões fixas)
-├── .gitignore                 # Arquivos ignorados no Git
-├── config/
-│   └── rules.yaml             # Limiares parametrizáveis das regras
-├── data/
-│   ├── raw/                   # Base original (gitignored)
-│   └── processed/             # Feature store, alertas, scores
-├── notebooks/
-│   ├── 01_eda_qualidade.ipynb
-│   ├── 02_regras_alertas.ipynb
-│   ├── 03_suspeitos_sar.ipynb
-│   └── 04_modelo_ml.ipynb
-├── src/
-│   ├── rules_engine.py        # Motor de regras
-│   ├── features.py            # Feature store
-│   ├── model.py               # Treino/avaliação ML
-│   └── agents/                # Pipeline multi-agente
-│       ├── pipeline.py
-│       └── prompts/
-├── outputs/
-│   ├── alertas/               # Alertas gerados
-│   ├── figuras/               # Gráficos para relatório e deck
-│   └── sar/                   # SARs (Suspicious Activity Reports)
-├── relatorio/                 # Relatório final (DOCX/PDF)
-└── apresentacao/              # Deck (Google Slides)
-```
+| Entregável | Resultado-chave |
+|---|---|
+| **Base analisada** | 52.000 tx · R$ 230M · 2.500 clientes · 3 rails |
+| **Motor de regras** | 22 regras · 10.576 alertas · 9 frentes de risco |
+| **Suspeitos** | Top 30 clientes ranqueados · 8 tipologias identificadas |
+| **SAR** | 1 SAR completo — C101208 (score 22/22, 7 tipologias, sanção confirmada) |
+| **Modelo ML** | XGBoost + IF · ROC-AUC **0,979** · PR-AUC **0,536** · Recall **93,3%** |
+| **Multi-agente** | 5 agentes + orquestrador · C101208 → APPROVE · report_coaf · D+3 |
 
 ---
 
-## 🚀 Quick Start
+## Caso principal — C101208
 
-### Pré-requisitos
-- Python 3.9+
-- Git
-- Chave de API da Anthropic (para agentes LLM)
+Cliente Chef, renda declarada R$ 13.047/ano, movimentou **R$ 150.178 (11,5× renda)** em 29
+transações via PIX, Cartão e Wire em **8 países**, acionando **7 tipologias simultâneas**:
 
-### Instalação
+- Renda incompatível (11,5× renda anual)
+- Geo-salto com velocidade física impossível (1.092 km/h BR→RU)
+- Cash-in → Cash-out PIX (layering)
+- E-commerce sem autenticação 3DS
+- Cross-border + ECI não-autenticado
+- Sanctions screening hit (transação para Síria — lista ONU)
+- MCC de alto risco (6011, 7995, 4789)
+
+**Score de risco:** 22/22 (máximo) · percentil 100% no modelo ML · Decisão: APPROVE → COAF
+
+---
+
+## Quick Start
 
 ```bash
-# 1. Clonar o repositório
+# Clone e instale dependências
 git clone https://github.com/VictorOS1997/aml-case-cloudwalk.git
 cd aml-case-cloudwalk
-
-# 2. Criar ambiente virtual
-python -m venv venv
-source venv/Scripts/activate  # Windows: venv\Scripts\activate
-
-# 3. Instalar dependências
+python -m venv .venv && .venv\Scripts\activate   # Windows
 pip install -r requirements.txt
 
-# 4. Configurar variáveis de ambiente
-cp .env.example .env
-# Editar .env e adicionar chave da Anthropic API
+# Reproduzir os resultados em sequência:
+python notebooks/01_eda_qualidade.py      # EDA e feature store
+python notebooks/02_regras_alertas.py    # 22 regras · 10.576 alertas
+python notebooks/03_suspeitos_sar.py     # Top 30 + SAR C101208
+python notebooks/04_modelo_ml.py         # XGBoost + IF · ROC-AUC 0.979
+
+# Pipeline multi-agente (requer ANTHROPIC_API_KEY)
+$env:ANTHROPIC_API_KEY = "sk-ant-..."
+python src/agents/pipeline.py --case C101208
+
+# Sem API key (modo simulado):
+python notebooks/05_agentes_pipeline.py
 ```
 
-### Executar
+**Seed:** `SEED = 42` em todos os módulos. Python 3.12+.
 
-```bash
-# 1. Exploração de dados (Dia 1)
-jupyter notebook notebooks/01_eda_qualidade.ipynb
+---
 
-# 2. Sistema de regras (Dia 2)
-jupyter notebook notebooks/02_regras_alertas.ipynb
+## Estrutura
 
-# 3. Suspeitos + SAR (Dia 3)
-jupyter notebook notebooks/03_suspeitos_sar.ipynb
-
-# 4. Modelo ML (Dia 4)
-jupyter notebook notebooks/04_modelo_ml.ipynb
-
-# 5. Multi-agente (Dia 5)
-python src/agents/pipeline.py
+```
+aml-case-cloudwalk/
+├── config/rules.yaml              # limiares parametrizáveis
+├── data/
+│   ├── raw/                       # base original (gitignored)
+│   └── processed/                 # feature store, scores
+├── notebooks/
+│   ├── 01_eda_qualidade.py        # EDA + coerência por rail
+│   ├── 02_regras_alertas.py       # motor de 22 regras
+│   ├── 03_suspeitos_sar.py        # Top 30 + SAR C101208
+│   ├── 04_modelo_ml.py            # XGBoost + Isolation Forest + SHAP
+│   └── 05_agentes_pipeline.py     # demo do pipeline multi-agente
+├── src/
+│   ├── rules_engine.py            # motor de regras
+│   ├── features.py                # feature store
+│   ├── model.py                   # treino e avaliação ML
+│   └── agents/
+│       └── pipeline.py            # 5 agentes + orquestrador (Tarefa 4)
+├── outputs/
+│   ├── alertas.csv                # todos os alertas gerados
+│   ├── ranking_risco.csv          # score por entidade
+│   ├── suspeitos_top30.csv        # top 30 suspeitos
+│   ├── 04_ml_scores.csv           # score ML de todos os 3.310 clientes
+│   ├── figuras/                   # gráficos (ROC, PR, SHAP, geo, timeline)
+│   └── sar/
+│       ├── SAR_C101208.md         # SAR completo (Dia 3, analista)
+│       └── C101208/               # artefatos do pipeline multi-agente
+│           ├── 00_auditoria.json
+│           ├── 01_dados.json
+│           ├── 02_deteccao.json
+│           ├── 03_investigacao.json
+│           ├── 04_reporte.json
+│           ├── 05_compliance.json
+│           └── sar_agente.md      # SAR gerado pelo Agente de Reporte
+├── outputs/05_relatorio_final.md  # relatório final (base para DOCX)
+└── apresentacao/deck_outline.md   # roteiro do Google Slides (12 slides)
 ```
 
 ---
 
-## 📅 Plano de 5 Dias
+## Motor de Regras (Tarefa 2)
 
-| Dia | Tarefa | Entrega |
-|-----|--------|---------|
-| **1** | Fundação & Dados | Notebook 01 + dicionário de dados + schema map |
-| **2** | Regras & Tipologias | Motor de regras + ≥15 regras + alertas (Sheets) |
-| **3** | Suspeitos & SAR | Lista de suspeitos + 1 SAR completo + grafo/mapa |
-| **4** | Machine Learning | Modelo de risco + métricas + SHAP + ranking (Sheets) |
-| **5** | Multi-agente + Relatório | Pipeline de 5 agentes + relatório DOCX + deck Slides |
+22 regras em 9 frentes, com limiares em `config/rules.yaml`:
 
----
-
-## 📚 Referências
-
-- **Balizador mestre:** [SKILL.md](./SKILL.md) (seção 0 sobre como usar)
-- **Arquitetura (3 camadas):** [ARQUITETURA.md](./ARQUITETURA.md)
-- **Catálogo de 22 regras:** `referencias/catalogo-regras.md`
-- **Template SAR:** `referencias/template-sar.md`
-- **Sistema multi-agente:** `referencias/agentes-aml.md`
-- **Esqueletos de código:** 
-  - `scripts/rules_engine_skeleton.py` (Tarefa 2)
-  - `scripts/aml_agents_skeleton.py` (Tarefa 4)
+| Frente | Regras | Alertas |
+|---|---|---|
+| Comportamento/Velocidade | R01, R02, R20 | 188 |
+| Structuring | R03, R21 | 4 |
+| Renda × Valor | R04 | 1.016 |
+| Geografia | R05, R06, R14 | 2.546 |
+| Device/IP | R07, R08, R22 | 3 |
+| Self-Merchant | R09 | 2 |
+| Cash-in/out | R10, R11 | 802 |
+| E-commerce / 3DS | R12, R13 | 1.337 |
+| PEP / MCC / Chargeback / Sanções | R15, R16, R17, R18 | 4.645 |
 
 ---
 
-## 🔑 Tipologias AML Cobertas
+## Modelo ML (Tarefa 3)
 
-| Tipologia | Sinal | Regras |
-|-----------|-------|--------|
-| **Structuring** | Valores abaixo de limiar | R03, R21 |
-| **Bursts/Velocidade** | Muitas transações rápido | R01, R02, R20 |
-| **Geo-salto** | Distância impossível | R05, R06 |
-| **PEP/MCC alto risco** | Pessoa/categoria sensível | R16, R17 |
-| **Device/IP ring** | Reuso entre clientes | R07, R08, R22 |
-| **Self-merchant** | Cliente paga merchant próprio | R09 |
-| **Cash-in → cash-out** | Entrada rápida = saída | R10, R11 |
-| **E-commerce sem 3DS** | CNP sem autenticação forte | R12, R13 |
-| **País/sanções** | Contraparte em lista | R14, R15 |
-| **Renda incompatível** | Valor vs renda | R04 |
-| **Chargeback** | Merchant com alta taxa | R18 |
+**Arquitetura:** XGBoost supervisionado (weak label) + Isolation Forest (anomalias)
+```
+Score Final = 0,70 × XGB_proba + 0,30 × IF_normalizado
+```
 
----
+**Weak label:** cliente com ≥2 core rules (R04, R05, R06, R10, R14, R15) → is_core_label=1
 
-## 📊 Reprodutibilidade
-
-- ✅ **Seeds fixas:** `SEED = 42` em todos os módulos
-- ✅ **Ambiente documentado:** `requirements.txt` com versões
-- ✅ **Coerência por rail:** Validação PIX/Card/Wire no Notebook 01
-- ✅ **Dados:** Descrição do schema em `data/README.md` (criar no Dia 1)
+| Métrica | Valor |
+|---|---|
+| ROC-AUC | 0,9793 |
+| PR-AUC | 0,5359 (16× baseline) |
+| Recall @ threshold 0,437 | 93,3% |
+| Clientes no tier "alto" | 249 (7,5%) |
 
 ---
 
-## 🔒 Segurança
+## Pipeline Multi-Agente (Tarefa 4)
 
-- 🚫 Dados sensíveis (CSVs) no `.gitignore`
-- 🔑 Credenciais em `.env` (nunca comitar)
-- 📋 Apenas amostra de dados no repositório (se necessário)
+```
+[Dados] → [Detecção] → [Investigação] → [Reporte] → [Compliance] → approve/revise
+  t=0,0      t=0,0          t=0,2          t=0,4         t=0,0
+```
 
----
+Cada agente recebe a saída do anterior como entrada. O orquestrador salva artefatos JSON por
+estágio e registra trilha de auditoria. Casos `revise` são re-enfileirados com motivos.
 
-## 📝 Entregáveis Finais
-
-- **Relatório:** 5–10 páginas (DOCX/PDF)
-  - Resumo executivo
-  - Achados + SAR
-  - Regras de alertas
-  - Modelo ML + métricas
-  - Arquitetura multi-agente
-
-- **Apresentação:** Google Slides (~10 slides)
-  - Objetivo & escopo
-  - Raciocínio & método
-  - Casos suspeitos
-  - Sistema de alertas
-  - Modelo ML + resultados
-  - Multi-agente
-  - Conclusões & melhorias
-
-- **Repositório:** Código reprodutível, README claro, sementes fixas
+**Resultado C101208:** APPROVE → `report_coaf` → SLA D+3 (prazo COAF)
 
 ---
 
-## 📞 Dúvidas?
+## Reprodutibilidade
 
-Consulte a **skill `cloudwalk-aml-case`** no Claude Code:
-- Seção 3 → Specs dos entregáveis
-- Seção 6 → MVP de cada etapa
-- Seção 11 → FAQ
-- Seção 8 → Tipologias AML
-
----
-
-## 📄 Licença
-
-MIT License — veja [LICENSE](./LICENSE)
+- `SEED = 42` definido em `src/config.py` e importado por todos os módulos
+- `requirements.txt` com versões fixas
+- Dados originais em `data/raw/` (gitignored — não sobem ao repo)
+- Coerência por rail validada e reportada no notebook 01
 
 ---
 
-**Status:** 🚀 Em desenvolvimento | **Última atualização:** 2026-06-20
+## Documentação
+
+- `outputs/05_relatorio_final.md` — relatório técnico completo (5–10 páginas)
+- `apresentacao/deck_outline.md` — roteiro do Google Slides (12 slides)
+- `outputs/sar/SAR_C101208.md` — SAR completo do caso principal
+- `outputs/04_relatorio_ml.md` — relatório técnico do modelo ML
+
+---
+
+**Status:** Completo — 5 dias | **Seed:** 42 | **Python:** 3.12+
