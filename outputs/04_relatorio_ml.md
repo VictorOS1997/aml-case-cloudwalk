@@ -26,9 +26,10 @@ por **Isolation Forest** (não-supervisionado) para capturar anomalias não cobe
 | Clientes no treino | 2,648 (positivos: 93) |
 | Clientes no teste | 662 (positivos: 15) |
 
-**Critério do rótulo fraco:** cliente é marcado `is_core_label=1` se acionar ≥2 regras de
-alta confiança (R04_income_mismatch, R05_geojump, R06_ip_anomaly, R10_cash_in_out,
-R14_high_risk_country, R15_sanctions_hit) — regras com menor taxa de falso-positivo.
+**Critério do rótulo fraco (canônico em `src/rules_engine.py`, `CORE_RULES`, linha 82):**
+cliente é marcado `is_core_label = 1` se acionar **≥ 2 regras-core de alta confiança**:
+**R03_structuring, R07_device_ring, R09_self_merchant, R12_ecom_no_3ds, R15_sanctions** —
+5 regras com menor taxa de falso-positivo (severidades 3 e 4).
 
 ---
 
@@ -65,23 +66,25 @@ não-supervisionado para anomalias não cobertas pelo rótulo fraco.
 
 ---
 
-## 4. Métricas de Avaliação (conjunto de TESTE)
+## 4. Métricas de Avaliação
 
-| Métrica | Valor |
-|---|---|
-| **ROC-AUC** | **0.9793** |
-| **PR-AUC** | **0.5359** |
-| Threshold ótimo (max-F1) | 0.437 |
-| Precisão @ threshold ótimo | 0.318 |
-| Recall @ threshold ótimo | 0.933 |
-| F1 @ threshold ótimo | 0.475 |
-| Verdadeiros Positivos | 14 |
-| Falsos Positivos | 30 |
-| Falsos Negativos | 1 |
-| Verdadeiros Negativos | 617 |
+| Métrica | Teste único | Cross-validation (5-fold) |
+|---|---|---|
+| **ROC-AUC** | **0.9793** | 0.9559 ± 0.0074 |
+| **PR-AUC**  | **0.5359** | **0.3127 ± 0.0484** |
+| Threshold ótimo (max-F1) | 0.437 | — |
+| Precisão @ threshold     | 0.318 | — |
+| Recall @ threshold       | 0.933 | — |
+| F1 @ threshold           | 0.475 | — |
+| Verdadeiros Positivos    | 14 | — |
+| Falsos Positivos         | 30 | — |
+| Falsos Negativos         | 1  | — |
+| Verdadeiros Negativos    | 617 | — |
 
-> **Nota:** PR-AUC é a métrica-chave em bases desbalanceadas (3,3% de positivos).
-> Um PR-AUC acima do baseline (3,3%) indica ganho real sobre o classificador aleatório.
+> **Nota:** PR-AUC é a métrica-chave em bases desbalanceadas (baseline = 3,3%). O **CV é a
+> referência** — o teste único deu PR-AUC mais alto por sorteio favorável do conjunto de teste.
+> Permutation test (15 execuções com labels embaralhados) deu p < 0,01, confirmando sinal real.
+> Discussão completa em `outputs/04_documentacao_modelo.md` §6–§7.
 
 ---
 

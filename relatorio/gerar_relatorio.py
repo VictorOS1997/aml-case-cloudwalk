@@ -277,13 +277,14 @@ add_table(
     doc,
     headers=["Dimensão", "Resultado"],
     rows=[
-        ["Base analisada",          "52.000 tx · 2.500 clientes · 1.000 merchants · R$ 230M"],
-        ["Regras implementadas",    "**22 regras** em 9 frentes de risco"],
+        ["Base analisada",          "52.000 tx · 2.500 perfis KYC · 1.000 merchants · 3.310 senders ativos"],
+        ["Regras implementadas",    "**22 regras** em 10 frentes de risco"],
         ["Alertas gerados",         "**10.576** (17 de 22 regras dispararam)"],
-        ["Entidades alertadas",     "**3.475** (clientes + merchants)"],
-        ["Suspeitos detalhados",    "**Top 30** clientes por score de risco"],
+        ["Entidades no ranking",    "**4.156** (3.310 clientes + 846 merchants)"],
+        ["Suspeitos detalhados",    "**Top 30** clientes (11 tipologias distintas)"],
         ["SAR elaborado",           "**1 SAR completo** — C101208 (score 22/22)"],
-        ["Modelo ML (ROC-AUC)",     "**0,979**  ·  PR-AUC 0,536  ·  Recall 93,3%"],
+        ["Modelo ML (teste único)", "ROC-AUC **0,979** · PR-AUC **0,536** · Recall 93%"],
+        ["Modelo ML (CV 5-fold)",   "ROC-AUC **0,956 ± 0,007** · PR-AUC **0,313 ± 0,048** (~9,6x baseline)"],
         ["Caso principal",          "C101208 — 7 tipologias · 11,5× renda · sanção confirmada"],
     ],
     col_widths_cm=[5.5, 10.5],
@@ -291,10 +292,10 @@ add_table(
 
 doc.add_paragraph()
 add_body(doc, (
-    "A abordagem combinou regras determinísticas (cobertura ampla), rótulo fraco (weak label de "
-    "6 regras-core) e XGBoost + Isolation Forest (generalização e detecção de anomalias não "
-    "cobertas por regras). Um pipeline multi-agente LLM de 5 estágios orquestra o ciclo da "
-    "detecção à decisão regulatória."
+    "A abordagem combinou regras determinísticas (cobertura ampla), rótulo fraco (weak label das "
+    "5 regras-core de alta confiança — R03, R07, R09, R12, R15) e XGBoost + Isolation Forest "
+    "(generalização e detecção de anomalias não cobertas por regras). Um pipeline multi-agente "
+    "LLM de 5 estágios orquestra o ciclo da detecção à decisão regulatória."
 ))
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -307,36 +308,40 @@ add_body(doc, (
     "resultando em um score de risco de 0 a 22 (máximo). O Top 30 foi selecionado para análise aprofundada."
 ))
 
-add_heading(doc, "Top 5 clientes", 3)
+add_heading(doc, "Top 5 clientes por score (fonte: outputs/ranking_risco.csv)", 3)
 add_table(
     doc,
-    headers=["Rank", "Cliente", "Score", "Tipologias principais", "Volume (R$)"],
+    headers=["Rank", "Cliente", "Score", "Core", "Tipologias principais", "Volume (R$)"],
     rows=[
-        ["1", "**C101208**", "22/22", "Sanções · Geo-salto · Renda incompat. · 3DS · Cross-border", "150.178"],
-        ["2", "C101991",    "20",    "Renda incompat. · PEP · Geo-salto · MCC risco",               "218.340"],
-        ["3", "C102339",    "19",    "Sanções · E-com sem 3DS · Cash-in/out",                        "87.450"],
-        ["4", "M200815",    "18",    "Self-merchant · Chargeback · Cross-border",                    "340.201"],
-        ["5", "C100847",    "17",    "Geo-salto · Structuring · MCC risco",                          "65.730"],
+        ["1", "**C101208**", "22", "★",  "Sanções · Geo-salto · Cash-in→out · E-com sem 3DS · Renda incompat. · MCC risco", "150.178"],
+        ["2", "C101919",     "22", "—",  "Renda incompat. · Geo-salto · Cash-in→out · Burst · E-com sem 3DS · Cross-border · PEP · MCC risco", "152.430"],
+        ["3", "C100184",     "21", "—",  "Renda incompat. · Geo-salto · Anomalia IP · Cash-in→out · E-com sem 3DS · Cross-border · MCC risco", "74.888"],
+        ["4", "C102093",     "21", "★",  "Renda incompat. · Geo-salto · Anomalia IP · Cash-in→out · E-com sem 3DS · Sanções · PEP · MCC risco", "192.074"],
+        ["5", "C100517",     "20", "★",  "Renda incompat. · Geo-salto · Cash-in→out · Burst · E-com sem 3DS · Sanções · MCC risco", "129.922"],
     ],
-    col_widths_cm=[1.0, 2.2, 1.5, 8.0, 2.5],
+    col_widths_cm=[0.8, 1.8, 1.2, 0.8, 8.4, 2.2],
 )
+add_body(doc, "★ = is_core_label=1 (acionou ≥2 regras-core do conjunto R03/R07/R09/R12/R15).")
 
 doc.add_paragraph()
-add_heading(doc, "Tipologias identificadas no Top 30", 3)
+add_heading(doc, "Tipologias presentes no Top 30 (11 distintas)", 3)
 add_table(
     doc,
-    headers=["Tipologia", "Clientes", "Exemplo"],
+    headers=["Tipologia", "Frequência no Top 30", "Exemplo"],
     rows=[
-        ["Renda incompatível (>5x renda anual)",    "18", "C101208 (11,5x)"],
-        ["Geo-salto (velocidade impossível)",        "14", "C101208 (1.092 km/h BR->RU)"],
-        ["E-commerce sem 3DS (alto valor)",          "12", "C101208, C102339"],
-        ["Cross-border + ECI não-autenticado",       "11", "C101208 (9 países)"],
-        ["Cash-in -> Cash-out (PIX, 24h)",           "10", "C101208, C100971"],
-        ["Sanctions screening hit",                   "7",  "C101208 (SY - Síria)"],
-        ["PEP ativo + MCC de alto risco",             "5",  "C101991"],
-        ["Self-merchant",                              "2",  "M200815"],
+        ["Renda Incompatível (>5x renda anual)",     "predominante", "C102093 (24,7x), C101208 (11,5x)"],
+        ["Geo-Salto (velocidade impossível)",        "predominante", "C101208 (1.092 km/h BR->RU em 13h)"],
+        ["E-com sem 3DS (alto valor)",               "predominante", "C101208, C100517"],
+        ["Cash-In → Cash-Out (PIX, 24h)",            "predominante", "C101208, C100517"],
+        ["E-com sem 3DS / Cross-border (ECI)",       "alta",         "C101208, C100184"],
+        ["MCC Alto Risco (6011, 7995, 6051, 4789)",  "alta",         "todo o top-5"],
+        ["Sanções (R15)",                             "casos críticos", "C101208, C102093, C100517"],
+        ["Anomalia IP/Device",                        "seletiva",     "C102093, C100184"],
+        ["País de Alto Risco (R14)",                  "seletiva",     "C100184, C101919"],
+        ["PEP",                                       "seletiva",     "C101919, C102093"],
+        ["Burst/Velocidade",                          "seletiva",     "C100517, C101919"],
     ],
-    col_widths_cm=[6.5, 2.0, 6.7],
+    col_widths_cm=[5.5, 3.5, 6.2],
 )
 
 doc.add_paragraph()
@@ -351,7 +356,7 @@ add_body(doc, (
 
 add_heading(doc, "7 tipologias simultâneas:", 3)
 typologies = [
-    "Renda incompatível — volume/renda = 11,5x (R04, severidade 3)",
+    "Renda incompatível — volume/renda = 11,5x (R04, severidade 2)",
     "Geo-salto — 1.092 km/h BR->RU em 13h (fisicamente impossível)",
     "Cash-in -> Cash-out PIX — layering em 24h",
     "E-commerce sem 3DS — 5 transações card-not-present sem autenticação forte",
@@ -385,9 +390,9 @@ add_table(
     headers=["Métrica", "Valor"],
     rows=[
         ["Regras implementadas",     "22"],
-        ["Regras que dispararam",    "17 (5 sem ocorrências na base)"],
+        ["Regras que dispararam",    "17 (5 sem ocorrências: R01, R07, R08, R11, R21)"],
         ["Total de alertas",          "10.576"],
-        ["Entidades únicas alertadas","3.475"],
+        ["Entidades únicas no ranking","4.156 (3.310 clientes + 846 merchants)"],
         ["Weak label positivos",      "108 clientes (3,3% da carteira)"],
     ],
     col_widths_cm=[7.0, 9.2],
@@ -399,18 +404,21 @@ add_table(
     doc,
     headers=["Regra", "Tipologia", "Sev.", "Alertas", "Lógica resumida"],
     rows=[
-        ["R04_income_mismatch", "Renda x Valor",  "3", "1.016", "Volume >= 5x renda anual"],
-        ["R05_geojump",         "Geo-Salto",       "3", "2.119", "Velocidade > 900 km/h entre tx"],
-        ["R09_self_merchant",   "Self-Merchant",   "4", "2",     "Cliente paga próprio merchant"],
-        ["R10_cash_in_out",     "Cash-in/out",     "3", "802",   "Saída >= 80% entrada PIX em 24h"],
-        ["R12_ecom_no_3ds",     "E-com sem 3DS",   "3", "572",   "Card-NP, 3DS=No, valor > limiar"],
-        ["R15_sanctions",       "Sancões",         "4", "484",   "sanctions_screening_hit=Yes"],
-        ["R16_pep",             "PEP",             "3", "52",    "pep_flag=True em tx"],
-        ["R17_high_risk_mcc",   "MCC Risco",       "2", "3.263", "MCC in {6011,7995,6051,4789}"],
-        ["R18_chargeback",      "Chargeback",      "2", "846",   "Merchant com taxa CB elevada"],
+        ["R03_structuring ★",   "Structuring",     "3",   "4",     ">=3 PIX em [9k–10k] em 7 dias"],
+        ["R04_income_mismatch", "Renda x Valor",   "2",   "1.016", "Valor > 15x renda mensal"],
+        ["R05_geojump",         "Geo-Salto",       "3",   "2.119", "Velocidade > 900 km/h entre tx"],
+        ["R07_device_ring ★",   "Device Ring",     "3",   "0",     ">=6 clientes num device/dia"],
+        ["R09_self_merchant ★", "Self-Merchant",   "4",   "2",     "Cliente paga merchant próprio"],
+        ["R10_cash_in_out",     "Cash-in/out",     "3",   "802",   "Saída >= 80% entrada PIX em 24h"],
+        ["R12_ecom_no_3ds ★",   "E-com sem 3DS",   "3",   "572",   "Card-NP, 3DS=No, valor alto"],
+        ["R15_sanctions ★",     "Sanções",         "3–4", "484",   "sanctions_screening_hit / país sancionado"],
+        ["R16_pep",             "PEP",             "3",   "52",    "pep_flag=True em tx"],
+        ["R17_high_risk_mcc",   "MCC Risco",       "2",   "3.263", "MCC ∈ {6011,7995,6051,4789}"],
+        ["R18_chargeback",      "Chargeback",      "2",   "846",   "Merchant com taxa CB elevada"],
     ],
     col_widths_cm=[3.5, 3.0, 1.0, 1.8, 6.9],
 )
+add_body(doc, "★ = regra-core (alta confiança / baixo falso-positivo) usada como rótulo fraco do ML.")
 
 doc.add_paragraph()
 add_heading(doc, "3.3 Triangulação reduz falsos positivos", 2)
@@ -430,23 +438,24 @@ add_body(doc, "Ensemble XGBoost (supervisionado fraco) + Isolation Forest (não-
 add_highlight_box(doc, "Score Final = 0,70 x XGBoost_proba + 0,30 x IF_score_normalizado", "F0F0F0")
 add_body(doc, (
     "Rótulo fraco (weak label): cliente marcado positivo se acionar >= 2 regras-core de alta "
-    "confiança: R04, R05, R06, R10, R14, R15. Dataset: 3.310 clientes · 108 positivos (3,3%) · "
-    "44 features · split temporal 80/20."
+    "confiança: R03_structuring, R07_device_ring, R09_self_merchant, R12_ecom_no_3ds, "
+    "R15_sanctions (definição em src/rules_engine.py, CORE_RULES, linha 82). Dataset: 3.310 "
+    "clientes · 108 positivos (3,3%) · 44 features · split temporal 80/20 por first_tx_date."
 ))
 
-add_heading(doc, "4.2 Métricas (conjunto de teste)", 2)
+add_heading(doc, "4.2 Métricas", 2)
 add_table(
     doc,
-    headers=["Métrica", "Valor"],
+    headers=["Métrica", "Teste único", "Cross-validation (5-fold)"],
     rows=[
-        ["ROC-AUC",                    "**0,979**"],
-        ["PR-AUC",                     "**0,536** (16x acima do baseline 3,3%)"],
-        ["Threshold ótimo (max-F1)",   "0,437"],
-        ["Precisão",                   "0,318"],
-        ["Recall",                     "**0,933** (captura 14/15 suspeitos)"],
-        ["F1",                         "0,475"],
+        ["ROC-AUC",                    "**0,979**", "0,956 ± 0,007"],
+        ["PR-AUC",                     "**0,536**", "**0,313 ± 0,048** (~9,6x baseline 0,033)"],
+        ["Threshold ótimo (max-F1)",   "0,437",     "—"],
+        ["Precisão @ threshold",       "0,318",     "—"],
+        ["Recall @ threshold",         "**0,933** (14/15 suspeitos)", "—"],
+        ["F1 @ threshold",             "0,475",     "—"],
     ],
-    col_widths_cm=[7.0, 9.2],
+    col_widths_cm=[5.6, 5.4, 5.4],
 )
 
 doc.add_paragraph()
@@ -567,13 +576,13 @@ add_table(
     doc,
     headers=["Artefato", "Caminho"],
     rows=[
-        ["Notebooks (Dias 1–4)",      "notebooks/01_eda_qualidade.py ... 04_modelo_ml.py"],
+        ["Scripts de execução (Dias 1–5)", "notebooks/01_eda_qualidade.py ... 05_agentes_pipeline.py"],
         ["Pipeline multi-agente",      "src/agents/pipeline.py"],
         ["Motor de regras",            "src/rules_engine.py"],
         ["Catálogo de regras (YAML)",  "config/rules.yaml"],
-        ["SAR completo C101208",       "outputs/sar/SAR_C101208.md"],
-        ["SAR gerado pelo agente",     "outputs/sar/C101208/sar_agente.md"],
-        ["Scores ML (todos clientes)", "outputs/04_ml_scores.csv"],
+        ["SAR completo C101208 (analista)", "outputs/sar/SAR_C101208.md"],
+        ["SAR gerado pelo agente (runtime)", "outputs/sar/C101208/sar_agente.md"],
+        ["Scores ML (3.310 clientes)", "outputs/04_ml_scores.csv"],
         ["Ranking de risco",           "outputs/ranking_risco.csv"],
         ["Top 30 suspeitos",           "outputs/suspeitos_top30.csv"],
         ["Alertas completos",          "outputs/alertas.csv"],

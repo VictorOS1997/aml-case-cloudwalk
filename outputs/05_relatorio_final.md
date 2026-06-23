@@ -19,19 +19,20 @@ e Wire entre julho e outubro de 2025.
 
 | Dimensão | Resultado |
 |---|---|
-| Base analisada | 52.000 transações · 2.500 clientes · 1.000 merchants · R$ 230M |
-| Regras implementadas | **22 regras** em 9 frentes de risco |
+| Base analisada | 52.000 transações · 2.500 perfis KYC · 1.000 merchants · 3.310 senders ativos |
+| Regras implementadas | **22 regras** em 10 frentes de risco |
 | Alertas gerados | **10.576** (17 de 22 regras dispararam) |
-| Entidades únicas alertadas | **3.475** (clientes + merchants) |
-| Suspeitos detalhados | **Top 30** clientes por score de risco |
+| Entidades únicas alertadas | **4.156** no ranking (3.310 clientes + 846 merchants) |
+| Suspeitos detalhados | **Top 30** clientes (11 tipologias distintas convergem) |
 | SAR elaborado | **1 SAR completo** — Cliente C101208 (score 22/22) |
-| Modelo ML (ROC-AUC) | **0.979** · PR-AUC **0.536** · Recall 93,3% |
+| Modelo ML (teste único) | ROC-AUC **0,979** · PR-AUC **0,536** · Recall 93% |
+| Modelo ML (CV 5-fold)   | ROC-AUC **0,956 ± 0,007** · PR-AUC **0,313 ± 0,048** (≈9,6× baseline) |
 | Caso principal | C101208 — 7 tipologias · 11,5× renda · sanção confirmada |
 
-A abordagem combinou **regras determinísticas** (cobertura ampla), **rótulo fraco** (weak label de
-6 regras-core) e **XGBoost + Isolation Forest** (generalização e detecção de anomalias não
-cobertas por regras). Um **pipeline multi-agente LLM** de 5 estágios orquestra o ciclo da
-detecção à decisão regulatória.
+A abordagem combinou **regras determinísticas** (cobertura ampla), **rótulo fraco** (weak label
+das 5 regras-core de alta confiança — R03, R07, R09, R12, R15) e **XGBoost + Isolation Forest**
+(generalização e detecção de anomalias não cobertas por regras). Um **pipeline multi-agente LLM**
+de 5 estágios orquestra o ciclo da detecção à decisão regulatória.
 
 ---
 
@@ -42,28 +43,33 @@ detecção à decisão regulatória.
 Clientes foram ranqueados pela soma ponderada de regras acionadas × severidade, resultando em um
 **score de risco de 0 a 22** (pontuação máxima). O Top 30 foi selecionado para análise aprofundada.
 
-**Top 5 clientes suspeitos:**
+**Top 5 clientes por score (fonte: `outputs/ranking_risco.csv`):**
 
-| Rank | Cliente | Score | Tipologias principais | Volume (R$) |
-|---|---|---|---|---|
-| 1 | **C101208** | 22 | Sanções · Geo-salto · Renda incompat. · 3DS · Cross-border | 150.178 |
-| 2 | C101991 | 20 | Renda incompat. · PEP · Geo-salto · MCC risco | 218.340 |
-| 3 | C102339 | 19 | Sanções · E-com sem 3DS · Cash-in/out | 87.450 |
-| 4 | M200815 | 18 | Self-merchant · Chargeback · Cross-border | 340.201 |
-| 5 | C100847 | 17 | Geo-salto · Structuring · MCC risco | 65.730 |
+| Rank | Cliente | Score | Core label | Tipologias principais | Volume (R$) |
+|---|---|---|---|---|---|
+| 1 | **C101208** | 22 | ★ SIM | Sanções · Geo-salto · Cash-in→out · E-com sem 3DS · ECI cross-border · Renda incompat. · MCC risco | 150.178 |
+| 2 | C101919 | 22 | não | Renda incompat. · Geo-salto · Cash-in→out · Burst/Velocidade · E-com sem 3DS · ECI cross-border · Cross-border alto · PEP · MCC risco | 152.430 |
+| 3 | C100184 | 21 | não | Renda incompat. · Geo-salto · Anomalia IP · Cash-in→out · E-com sem 3DS · ECI cross-border · Cross-border alto · MCC risco · Conta nova | 74.888 |
+| 4 | C102093 | 21 | ★ SIM | Renda incompat. · Geo-salto · Anomalia IP · Cash-in→out · E-com sem 3DS · Sanções · PEP · MCC risco | 192.074 |
+| 5 | C100517 | 20 | ★ SIM | Renda incompat. · Geo-salto · Cash-in→out · Burst/Velocidade · E-com sem 3DS · ECI cross-border · Sanções · MCC risco | 129.922 |
 
-**Tipologias identificadas no Top 30:**
+> ★ = `is_core_label = 1` (acionou ≥ 2 regras-core do conjunto R03/R07/R09/R12/R15).
 
-| Tipologia | Clientes | Exemplo |
+**Tipologias presentes no Top 30 (11 distintas, fonte: `outputs/suspeitos_top30.csv`):**
+
+| Tipologia | Frequência no Top 30 | Exemplo |
 |---|---|---|
-| Renda incompatível (>5× renda anual) | 18 | C101208 (11,5×) |
-| Geo-salto (velocidade impossível) | 14 | C101208 (1.092 km/h BR→RU) |
-| E-commerce sem 3DS (alto valor) | 12 | C101208, C102339 |
-| Cross-border + ECI não-autenticado | 11 | C101208 (9 países) |
-| Cash-in → Cash-out (PIX, 24h) | 10 | C101208, C100971 |
-| Sanctions screening hit | 7 | C101208 (SY — Síria) |
-| PEP ativo + MCC de alto risco | 5 | C101991 |
-| Self-merchant | 2 | M200815 |
+| Renda Incompatível (>5× renda anual) | predominante | C102093 (24,7×), C101208 (11,5×) |
+| Geo-Salto (velocidade impossível) | predominante | C101208 (1.092 km/h BR→RU em 13h) |
+| E-com sem 3DS (alto valor) | predominante | C101208, C100517 |
+| Cash-In → Cash-Out (PIX, 24h) | predominante | C101208, C100517 |
+| E-com sem 3DS / Cross-border (ECI) | alta | C101208, C100184 |
+| MCC Alto Risco (6011, 7995, 6051, 4789) | alta | top-5 inteiro |
+| Sanções (R15) | concentrada nos casos críticos | C101208, C102093, C100517 |
+| Anomalia IP/Device | seletiva | C102093, C100184 |
+| País de Alto Risco (R14) | seletiva | C100184, C101919 |
+| PEP | seletiva | C101919, C102093 |
+| Burst/Velocidade | seletiva | C100517, C101919 |
 
 ### 2.2 SAR — Cliente C101208 (Caso Principal)
 
@@ -74,7 +80,7 @@ KYC Tier L1) realizou **29 transações** totalizando **R$ 150.178** — **11,5�
 — por PIX, Cartão e Wire em **8 países** (BR, PT, BY, SY, GB, ES, RU, YE).
 
 **7 tipologias simultâneas:**
-1. **Renda incompatível** — volume/renda = 11,5× (regra R04, severidade 3)
+1. **Renda incompatível** — volume/renda = 11,5× (regra R04, severidade 2)
 2. **Geo-salto** — 1.092 km/h BR→RU em 13h (física e logisticamente impossível)
 3. **Cash-in → Cash-out PIX** — padrão de layering em 24h
 4. **E-commerce sem 3DS** — 5 transações card-not-present sem autenticação forte
@@ -95,30 +101,35 @@ SAR completo: `outputs/sar/SAR_C101208.md`
 
 ### 3.1 Visão geral do motor de regras
 
-**22 regras** em 9 frentes de risco, implementadas em `src/rules_engine.py` com limiares
+**22 regras** em 10 frentes de risco, implementadas em `src/rules_engine.py` com limiares
 configuráveis via `config/rules.yaml`.
 
 | Métrica | Valor |
 |---|---|
 | Regras implementadas | 22 |
-| Regras que dispararam | 17 (5 sem ocorrências na base) |
+| Regras que dispararam | 17 (5 sem ocorrências na base: R01, R07, R08, R11, R21) |
 | Total de alertas | 10.576 |
-| Entidades únicas | 3.475 |
+| Entidades únicas no ranking | 4.156 (3.310 clientes + 846 merchants) |
 | Weak label positivos | 108 clientes (3,3% da carteira) |
 
-### 3.2 Catálogo de regras (seleção)
+### 3.2 Catálogo de regras (seleção — severidades alinhadas a `src/rules_engine.py`)
 
 | Regra | Tipologia | Severidade | Alertas | Lógica resumida |
 |---|---|---|---|---|
-| R04_income_mismatch | Renda × Valor | 3 | 1.016 | Volume ≥ 5× renda anual |
+| R03_structuring ★ | Structuring | 3 | 4 | ≥3 PIX em [R$ 9k–10k] em 7 dias |
+| R04_income_mismatch | Renda × Valor | 2 | 1.016 | Valor > 15× renda mensal |
 | R05_geojump | Geo-Salto | 3 | 2.119 | Velocidade > 900 km/h entre tx |
-| R09_self_merchant | Self-Merchant | 4 | 2 | cliente paga próprio merchant |
-| R10_cash_in_out | Cash-in/out | 3 | 802 | saída ≥ 80% entrada PIX em 24h |
-| R12_ecom_no_3ds | E-com sem 3DS | 3 | 572 | card-NP, 3DS=No, valor > limiar |
-| R15_sanctions | Sanções | 4 | 484 | sanctions_screening_hit=Yes |
+| R07_device_ring ★ | Device/IP Ring | 3 | 0 | ≥6 clientes num device/dia |
+| R09_self_merchant ★ | Self-Merchant | 4 | 2 | Cliente paga merchant próprio |
+| R10_cash_in_out | Cash-in/out | 3 | 802 | Saída ≥ 80% entrada PIX em 24h |
+| R12_ecom_no_3ds ★ | E-com sem 3DS | 3 | 572 | Card-NP, 3DS=No, valor ≥ limiar |
+| R15_sanctions ★ | Sanções | 3–4 | 484 | sanctions_screening_hit=Yes / país sancionado |
 | R16_pep | PEP | 3 | 52 | pep_flag=True em tx |
-| R17_high_risk_mcc | MCC Risco | 2 | 3.263 | MCC em {6011, 7995, 6051, 4789} |
-| R18_chargeback | Chargeback | 2 | 846 | merchant com taxa CB elevada |
+| R17_high_risk_mcc | MCC Risco | 2 | 3.263 | MCC ∈ {6011, 7995, 6051, 4789} |
+| R18_chargeback | Chargeback | 2 | 846 | Merchant com taxa CB elevada |
+
+> ★ = regra-core (alta confiança / baixo falso-positivo) usada como rótulo fraco do ML.
+> Catálogo completo das 22 regras em `outputs/02_relatorio_regras.md`.
 
 ### 3.3 Falso-positivo controlado por contexto
 
@@ -137,7 +148,7 @@ R15 + R04 = score 22, nível CRÍTICO.
 ### 4.1 Arquitetura
 
 Ensemble de dois modelos complementares:
-- **XGBoost** (supervisionado fraco): aprende dos padrões das 6 regras-core
+- **XGBoost** (supervisionado fraco): aprende dos padrões das **5 regras-core** (R03, R07, R09, R12, R15)
 - **Isolation Forest** (não-supervisionado): captura anomalias fora do catálogo de regras
 
 ```
@@ -146,24 +157,27 @@ Score Final = 0,70 × XGBoost_proba + 0,30 × IF_score_normalizado
 
 ### 4.2 Rótulo fraco (weak label)
 
-Cliente marcado `is_core_label=1` se acionar ≥ 2 regras-core de alta confiança:
-R04, R05, R06, R10, R14, R15 — regras com menor taxa de falso-positivo.
+Cliente marcado `is_core_label = 1` se acionar **≥ 2 regras-core** do conjunto de alta
+confiança: **R03_structuring, R07_device_ring, R09_self_merchant, R12_ecom_no_3ds,
+R15_sanctions** (definição em `src/rules_engine.py`, `CORE_RULES`, linha 82).
 
-**Dataset:** 3.310 clientes · 108 positivos (3,3%) · 44 features · split temporal (80/20)
+**Dataset:** 3.310 clientes · 108 positivos (3,3%) · 44 features · split temporal (80/20 por `first_tx_date`)
 
-### 4.3 Métricas (conjunto de teste)
+### 4.3 Métricas
 
-| Métrica | Valor |
-|---|---|
-| **ROC-AUC** | **0,979** |
-| **PR-AUC** | **0,536** (16× acima do baseline de 3,3%) |
-| Threshold ótimo (max-F1) | 0,437 |
-| Precisão | 0,318 |
-| **Recall** | **0,933** (captura 14/15 suspeitos) |
-| F1 | 0,475 |
+| Métrica | Teste único | Cross-validation (5-fold) |
+|---|---|---|
+| **ROC-AUC** | **0,9793** | 0,9559 ± 0,0074 |
+| **PR-AUC**  | **0,5359** | **0,3127 ± 0,0484** (≈9,6× baseline 0,0326) |
+| Threshold ótimo (max-F1) | 0,437 | — |
+| Precisão @ threshold     | 0,318 | — |
+| **Recall** @ threshold   | **0,933** (captura 14/15 suspeitos) | — |
+| F1 @ threshold           | 0,475 | — |
 
-> PR-AUC é a métrica-chave para bases desbalanceadas. O valor de 0,536 representa ganho
-> real de 16× sobre o classificador aleatório (baseline = 3,3%).
+> PR-AUC é a métrica-chave para bases desbalanceadas (baseline = 3,3%). O **CV é a referência**
+> (estável entre splits). O teste único deu PR-AUC mais alto por sorteio favorável do conjunto
+> de teste — permutation test confirma sinal real (p < 0,01). Discussão completa em
+> `outputs/04_documentacao_modelo.md` §6–§7.
 
 ### 4.4 Explicabilidade — C101208
 
@@ -176,7 +190,7 @@ SHAP drivers do score de C101208 (score final 0,797 — percentil 100%):
 | `n_no_3ds` | +0,074 | aumenta risco |
 | `pct_pix` | +0,026 | aumenta risco |
 
-### 4.5 Distribuição de risco da carteira
+### 4.5 Distribuição de risco da carteira (3.310 clientes pontuados)
 
 | Tier | Score | Clientes | % |
 |---|---|---|---|
@@ -262,8 +276,9 @@ segundos a triagem inicial de casos.
 2. O cliente C101208 é o caso de maior risco identificado: **7 tipologias simultâneas** em 3 rails,
    incluindo sanção confirmada — ação regulatória recomendada com alta confiança.
 
-3. O modelo de ML (ROC-AUC 0,979, Recall 93,3%) demonstra que os padrões de comportamento
-   suspeito são capturáveis por features comportamentais + geográficas, mesmo com rótulo fraco.
+3. O modelo de ML (ROC-AUC 0,979 no teste único / 0,956 no CV, Recall 93%) demonstra que os
+   padrões de comportamento suspeito são capturáveis por features comportamentais + geográficas,
+   mesmo com rótulo fraco.
 
 4. O pipeline multi-agente entrega rastreabilidade e defensabilidade regulatória — cada decisão
    cita evidências, IDs de transação e base legal.
@@ -277,12 +292,12 @@ segundos a triagem inicial de casos.
 
 | Artefato | Caminho |
 |---|---|
-| Notebooks completos | `notebooks/01` a `04_*.py` |
+| Scripts de execução | `notebooks/01_eda_qualidade.py` … `notebooks/05_agentes_pipeline.py` |
 | Motor de regras | `src/rules_engine.py` |
 | Pipeline multi-agente | `src/agents/pipeline.py` |
 | Catálogo de regras | `config/rules.yaml` |
-| SAR completo C101208 | `outputs/sar/SAR_C101208.md` |
-| SAR gerado pelo agente | `outputs/sar/C101208/sar_agente.md` |
+| SAR completo C101208 (analista) | `outputs/sar/SAR_C101208.md` |
+| SAR gerado pelo agente (runtime) | `outputs/sar/C101208/sar_agente.md` (gerado ao executar pipeline com ANTHROPIC_API_KEY) |
 | Scores ML | `outputs/04_ml_scores.csv` |
 | Ranking de risco | `outputs/ranking_risco.csv` |
 | Top 30 suspeitos | `outputs/suspeitos_top30.csv` |

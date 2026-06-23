@@ -51,16 +51,18 @@
 
 ## Slide 4 — Motor de Regras (Tarefa 2)
 
-**Título:** 22 regras · 10.576 alertas · 9 frentes de risco
+**Título:** 22 regras · 10.576 alertas · 10 frentes de risco
 
 **Tabela selecionada:**
 | Regra | Tipologia | Sev | Alertas |
 |---|---|---|---|
 | R05_geojump | Geo-salto | 3 | 2.119 |
 | R17_high_risk_mcc | MCC risco | 2 | 3.263 |
-| R15_sanctions | Sanções | 4 | 484 |
-| R04_income_mismatch | Renda incompat. | 3 | 1.016 |
-| R12_ecom_no_3ds | E-com sem 3DS | 3 | 572 |
+| R15_sanctions | Sanções | 3–4 | 484 |
+| R04_income_mismatch | Renda incompat. | 2 | 1.016 |
+| R12_ecom_no_3ds ★ | E-com sem 3DS | 3 | 572 |
+
+> ★ = regra-core (usada como rótulo fraco do ML)
 
 **Princípio:** uma regra isolada raramente é suficiente — a triangulação de 3+ regras eleva a
 confiança e reduz falsos positivos.
@@ -115,11 +117,11 @@ confiança e reduz falsos positivos.
 
 ## Slide 8 — Modelo de Machine Learning (Tarefa 3)
 
-**Título:** XGBoost + Isolation Forest — ROC-AUC 0,979
+**Título:** XGBoost + Isolation Forest — ROC-AUC 0,979 (CV 0,956)
 
 **Arquitetura:**
 ```
-Weak Label (6 regras-core)
+Weak Label (5 regras-core: R03, R07, R09, R12, R15)
         ↓
 XGBoost (70%) + Isolation Forest (30%)
         ↓
@@ -127,12 +129,12 @@ Score Final por cliente [0–1]
 ```
 
 **Métricas:**
-| Métrica | Valor |
-|---|---|
-| ROC-AUC | **0,979** |
-| PR-AUC | **0,536** (16× baseline) |
-| Recall | **93,3%** |
-| F1 | 0,475 |
+| Métrica | Teste único | Cross-validation (5-fold) |
+|---|---|---|
+| ROC-AUC | **0,979** | 0,956 ± 0,007 |
+| PR-AUC  | **0,536** | **0,313 ± 0,048** (≈9,6× baseline) |
+| Recall @ thr 0,437 | **93%** | — |
+| F1 @ thr 0,437     | 0,475 | — |
 
 *C101208: percentil 100% — topo da carteira*
 
@@ -152,7 +154,7 @@ Score Final por cliente [0–1]
 | Médio (0,30–0,60) | 237 | 7,2% |
 | Alto (0,60–0,80) | 249 | 7,5% |
 
-**Curva de cutoff:** threshold 0,437 → Recall 93,3% com 30 FP (operacional)
+**Curva de cutoff:** threshold 0,437 → Recall 93% com 30 FP (operacional)
 
 ---
 
@@ -202,9 +204,9 @@ Artefatos JSON versionados por estágio: `outputs/sar/C101208/`
 **Título:** Sistema AML-FT: completo, explicável, defensável
 
 **O que entregamos:**
-- 22 regras · 10.576 alertas · cobertura em 9 frentes de risco
+- 22 regras · 10.576 alertas · cobertura em 10 frentes de risco
 - 1 SAR completo com 7 tipologias e evidências por ID
-- Modelo ML com Recall 93,3% e PR-AUC 16× acima do baseline
+- Modelo ML com Recall 93% e PR-AUC ~9,6× acima do baseline (CV)
 - Pipeline multi-agente da detecção à decisão regulatória em <60s
 
 **Limitações honestas:**

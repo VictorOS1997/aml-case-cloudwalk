@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-Notebook 01 - EDA e Qualidade de Dados
-Script Python puro (sem Jupyter).
+Script 01 — EDA e Qualidade de Dados (Dia 1).
+
+Script Python executável. Saída: `outputs/01_relatorio_eda.md` + `data/processed/*.csv`.
 
 Sheets:
   - Transactions  (52000 x 41)

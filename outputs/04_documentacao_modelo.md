@@ -15,7 +15,7 @@ enviou dinheiro para país sancionado"), mas têm três limitações práticas:
 
 | Limitação | Exemplo concreto |
 |---|---|
-| **São binárias** | A regra R04 dispara se `volume > 5× renda`. Mas e 4,9×? E 10×? Elas tratam igual. |
+| **São binárias** | A regra R04 dispara se `valor > 15× renda mensal`. Mas e 14,9×? E 30×? Elas tratam igual. |
 | **Ignoram combinações** | Um cliente com volume moderado + geo-salto + sem 3DS pode ser muito mais suspeito do que um com só volume alto. As regras somam pontos; o ML *multiplica* evidências. |
 | **Não aprendem** | Se surgir um novo padrão (ex.: dispositivos rooteados + MCC de alto risco), as regras precisam ser reescritas. O ML captura combinações não descritas explicitamente. |
 
@@ -167,17 +167,21 @@ Múltiplos dispositivos ou uso de VPN/Tor = tentativa de ocultar localização r
 Não temos investigadores confirmando "este cliente é lavador" — isso é a realidade de qualquer
 sistema AML antes da investigação humana. Usamos um **rótulo fraco (weak label)**.
 
-**Definição:** um cliente é marcado `is_core_label = 1` se acionar **≥ 2 das seguintes
-regras de alta confiança** (baixa taxa de falso-positivo):
+**Definição (canônica em `src/rules_engine.py`, `CORE_RULES`, linha 82):** um cliente é marcado
+`is_core_label = 1` se acionar **≥ 2 das seguintes 5 regras-core de alta confiança** (baixa
+taxa de falso-positivo, conforme catálogo `referencias/catalogo-regras.md`):
 
-| Regra | Tipologia | Por que é "core" |
-|---|---|---|
-| R04 — income_mismatch | Renda incompatível | Incompatibilidade flagrante (>5×) é difícil de ser acidental |
-| R05 — geojump | Geo-salto físicamente impossível | Velocidade >900 km/h: fraude de identidade ou uso por terceiros |
-| R06 — ip_anomaly | Anomalia de IP/VPN/Tor | Ocultação deliberada de localização |
-| R10 — cash_in_out | Cash-in → cash-out rápido | Layering: passagem de dinheiro sem propósito comercial |
-| R14 — high_risk_country | País de alto risco | Jurisdição FATF/GAFI monitorada ou sancionada |
-| R15 — sanctions_hit | Hit em lista de sanções | Correspondência direta com entidade sancionada |
+| Regra | Severidade | Tipologia | Por que é "core" |
+|---|---|---|---|
+| R03 — structuring | 3 | Structuring PIX | Fragmentar valores logo abaixo de limiar de reporte é tipologia clássica FATF — raramente acidental |
+| R07 — device_ring | 3 | Device ring | Vários clientes usando um único device em janela curta = laranjas/mulas |
+| R09 — self_merchant | 4 | Self-merchant | Cliente paga merchant do qual é dono — faturamento fictício, sem ambiguidade |
+| R12 — ecom_no_3ds | 3 | E-com sem 3DS | Card-not-present + 3DS=No + valor alto = exposição alta e padrão atípico de varejo |
+| R15 — sanctions | 3–4 | Sanções / país de risco | Hit direto contra lista de sanções (OFAC/ONU/UE) é gatilho regulatório imediato |
+
+**Distribuição resultante:** 108 positivos em 3.310 clientes (3,3% — base desbalanceada).
+Os clientes-positivos são os que combinam pelo menos duas destas 5 regras — o que indica padrão
+estruturado, não ruído isolado.
 
 **Limitação:** o modelo está aprendendo a replicar essas regras, não a detectar lavagem real.
 Isso é uma aproximação necessária na ausência de labels auditados.

@@ -11,11 +11,11 @@
 
 | Entregável | Resultado-chave |
 |---|---|
-| **Base analisada** | 52.000 tx · R$ 230M · 2.500 clientes · 3 rails |
-| **Motor de regras** | 22 regras · 10.576 alertas · 9 frentes de risco |
-| **Suspeitos** | Top 30 clientes ranqueados · 8 tipologias identificadas |
-| **SAR** | 1 SAR completo — C101208 (score 22/22, 7 tipologias, sanção confirmada) |
-| **Modelo ML** | XGBoost + IF · ROC-AUC **0,979** · PR-AUC **0,536** · Recall **93,3%** |
+| **Base analisada** | 52.000 tx · 2.500 perfis KYC · 3.310 senders únicos · 3 rails |
+| **Motor de regras** | 22 regras (17 dispararam) · 10.576 alertas · 10 frentes de risco |
+| **Suspeitos** | Top 30 clientes (4.156 entidades ranqueadas) · 11 tipologias distintas |
+| **SAR** | 1 SAR completo — C101208 (score 22/22, 7 tipologias convergentes, sanção confirmada) |
+| **Modelo ML** | XGBoost + IF · ROC-AUC **0,979** (CV 0,956) · PR-AUC **0,536** (CV 0,313, ~9,6× baseline) · Recall **93%** |
 | **Multi-agente** | 5 agentes + orquestrador · C101208 → APPROVE · report_coaf · D+3 |
 
 ---
@@ -88,14 +88,14 @@ aml-case-cloudwalk/
 │   ├── alertas.csv                # todos os alertas gerados
 │   ├── ranking_risco.csv          # score por entidade
 │   ├── suspeitos_top30.csv        # top 30 suspeitos
-│   ├── 04_ml_scores.csv           # score ML de todos os 3.310 clientes
+│   ├── 04_ml_scores.csv           # score ML dos 3.310 clientes
 │   ├── figuras/                   # gráficos (ROC, PR, SHAP, geo, timeline)
 │   └── sar/
-│       ├── SAR_C101208.md         # SAR completo (Dia 3, analista)
-│       └── C101208/               # artefatos do pipeline multi-agente
-│           ├── 00_auditoria.json
-│           ├── 01_dados.json
-│           ├── 02_deteccao.json
+│       ├── SAR_C101208.md         # SAR completo (Dia 3, analista) — COMITADO
+│       └── C101208/               # artefatos do pipeline multi-agente (gerados em runtime)
+│           ├── 00_auditoria.json  # ↑ produzidos por src/agents/pipeline.py
+│           ├── 01_dados.json      #   ao rodar com ANTHROPIC_API_KEY definida.
+│           ├── 02_deteccao.json   #   Não comitados — execução real exige a chave.
 │           ├── 03_investigacao.json
 │           ├── 04_reporte.json
 │           ├── 05_compliance.json
@@ -108,7 +108,8 @@ aml-case-cloudwalk/
 
 ## Motor de Regras (Tarefa 2)
 
-22 regras em 9 frentes, com limiares em `config/rules.yaml`:
+22 regras em 10 frentes, com limiares em `config/rules.yaml`. 17 das 22 dispararam na base
+(R01, R07, R08, R11, R21 não tiveram hits — preservadas no catálogo para cobertura).
 
 | Frente | Regras | Alertas |
 |---|---|---|
@@ -121,6 +122,8 @@ aml-case-cloudwalk/
 | Cash-in/out | R10, R11 | 802 |
 | E-commerce / 3DS | R12, R13 | 1.337 |
 | PEP / MCC / Chargeback / Sanções | R15, R16, R17, R18 | 4.645 |
+| Parcelamento atípico | R19 | 33 |
+| **Total** | **22** | **10.576** |
 
 ---
 
@@ -131,14 +134,22 @@ aml-case-cloudwalk/
 Score Final = 0,70 × XGB_proba + 0,30 × IF_normalizado
 ```
 
-**Weak label:** cliente com ≥2 core rules (R04, R05, R06, R10, R14, R15) → is_core_label=1
+**Weak label:** cliente com ≥2 core rules de alta confiança (R03_structuring, R07_device_ring,
+R09_self_merchant, R12_ecom_no_3ds, R15_sanctions) → `is_core_label = 1`. Resulta em 108
+positivos / 3.310 clientes (3,3% — base desbalanceada). Definição canônica em
+`src/rules_engine.py` (`CORE_RULES`, linha 82).
 
-| Métrica | Valor |
-|---|---|
-| ROC-AUC | 0,9793 |
-| PR-AUC | 0,5359 (16× baseline) |
-| Recall @ threshold 0,437 | 93,3% |
-| Clientes no tier "alto" | 249 (7,5%) |
+| Métrica | Teste único | Cross-validation (5-fold) |
+|---|---|---|
+| ROC-AUC | 0,9793 | 0,9559 ± 0,0074 |
+| PR-AUC | 0,5359 | 0,3127 ± 0,0484 (~9,6× baseline 0,0326) |
+| Recall @ threshold 0,437 | 93% | — |
+| Precisão @ threshold 0,437 | 32% | — |
+| Clientes no tier "alto" | 249 (7,5%) | — |
+
+O CV é a referência (estável, sem dependência de um split específico). O teste único deu
+PR-AUC mais alto por sorteio favorável do conjunto de teste — discussão completa em
+`outputs/04_documentacao_modelo.md` §6.
 
 ---
 
@@ -161,7 +172,8 @@ estágio e registra trilha de auditoria. Casos `revise` são re-enfileirados com
 - `SEED = 42` definido em `src/config.py` e importado por todos os módulos
 - `requirements.txt` com versões fixas
 - Dados originais em `data/raw/` (gitignored — não sobem ao repo)
-- Coerência por rail validada e reportada no notebook 01
+- Coerência por rail validada e reportada no script `notebooks/01_eda_qualidade.py`
+  (saída em `outputs/01_relatorio_eda.md`)
 
 ---
 
