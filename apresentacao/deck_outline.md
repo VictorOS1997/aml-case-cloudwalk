@@ -97,7 +97,8 @@ confiança e reduz falsos positivos.
 **7 tipologias:** Renda incompat. · Geo-salto · Cash-in→out · E-com sem 3DS · Cross-border · Sanções · MCC risco
 
 **Visual: mapa de geo-salto**
-- BR → RU → BR em 25h (15.907 km, 635 km/h)
+- Maior distância: BR → RU → BR em 25h (**15.907 km**, 635 km/h) — geo-salto de maior extensão
+- Maior velocidade: BR → RU em 13h (**14.342 km**, **1.092 km/h**) — fisicamente impossível
 - BR → SY (Wire TNHZDN7D6LYK6 — sanção confirmada)
 
 **Ação:** D+0 bloqueio · D+1 Compliance · D+3 COAF/SISCOAF
@@ -190,7 +191,9 @@ Score Final por cliente [0–1]
 ```
 [1/5] DADOS       → qualidade ok · países risco: SY, RU, YE, BY
 [2/5] DETECÇÃO    → 7 regras · priority=39.6 · SANÇÃO no topo
-[3/5] INVESTIGAÇÃO → CRÍTICO · 7 tipologias · geo-jump 14.341km
+[3/5] INVESTIGAÇÃO → CRÍTICO · 7 tipologias
+                     geo-salto mais rápido: 14.342km (1.092 km/h, BR→RU, 13h)
+                     geo-salto maior distância: 15.907km (635 km/h, BR→RU→BR, 25h)
 [4/5] REPORTE     → SAR draft 7 seções · layering confirmado
 [5/5] COMPLIANCE  → APPROVE · report_coaf · SLA D+3
 ```

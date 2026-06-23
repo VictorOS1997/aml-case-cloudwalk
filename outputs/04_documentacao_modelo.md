@@ -401,4 +401,4 @@ Analista humano revisa → fecha o loop
 ---
 
 _Gerado pelo pipeline de Dia 4 do CloudWalk AML-FT Case._
-_Modelo: XGBoost 3.3.0 + scikit-learn 1.9.0 + SHAP 0.52.0. SEED=42. Python 3.14._
+_Modelo: XGBoost 3.3.0 + scikit-learn 1.9.0 + SHAP 0.52.0. SEED=42. Python 3.12._

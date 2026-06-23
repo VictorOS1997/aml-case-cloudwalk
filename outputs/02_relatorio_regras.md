@@ -13,10 +13,16 @@
 | Regras implementadas | 22 |
 | Regras que dispararam alertas | 17 |
 | Total de alertas gerados | 10,576 |
-| Entidades únicas alertadas | 3,475 |
+| Entidades com ao menos 1 alerta | 3,475 |
+| Entidades no ranking total¹ | 4,156 (3,310 clientes + 846 merchants) |
 | Clientes no ranking | 3,310 |
 | Merchants no ranking | 846 |
 | Weak label positivo (≥2 regras-core) | 108 |
+
+> ¹ O ranking (`outputs/ranking_risco.csv`) inclui todas as entidades da base, mesmo aquelas com
+> score zero. As 3,475 "entidades com ao menos 1 alerta" são o subconjunto que disparou ao menos
+> uma regra; as 4,156 do ranking total abrangem também entidades sem alerta mas com features
+> calculadas. O número 4,156 é o referenciado no relatório final e no README.
 
 ---
 
@@ -40,7 +46,7 @@
 | R12_ecom_no_3ds | E-commerce sem 3DS ★ | E-commerce / 3DS | 3 | 572 | `TCRGE3QP5PJX2` |
 | R13_eci_cross_border | ECI Cross-border | E-commerce / 3DS | 2 | 765 | `T1AJ938L2PSXF` |
 | R14_cross_border_high | Cross-border Alto Valor | País de Risco | 2 | 226 | `TXGJ8KE92NPJX` |
-| R15_sanctions | Sanções ★ | Sanções / País Risco | 4 | 484 | `TJRKHTP81JROK` |
+| R15_sanctions | Sanções ★ | Sanções / País Risco | 3–4 | 484 | `TJRKHTP81JROK` |
 | R16_pep | PEP Ativo | PEP / MCC Risco | 3 | 52 | `TGWFWVYJM6BZ1` |
 | R17_high_risk_mcc | MCC Alto Risco | PEP / MCC Risco | 2 | 3,263 | `T9HIMVHJ8TMK7` |
 | R18_chargeback_merchant | Chargeback Merchant | Chargeback | 2 | 846 | `T9HIMVHJ8TMK7` |

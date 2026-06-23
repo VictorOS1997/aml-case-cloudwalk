@@ -51,9 +51,16 @@ Clientes foram ranqueados pela soma ponderada de regras acionadas × severidade,
 | 2 | C101919 | 22 | não | Renda incompat. · Geo-salto · Cash-in→out · Burst/Velocidade · E-com sem 3DS · ECI cross-border · Cross-border alto · PEP · MCC risco | 152.430 |
 | 3 | C100184 | 21 | não | Renda incompat. · Geo-salto · Anomalia IP · Cash-in→out · E-com sem 3DS · ECI cross-border · Cross-border alto · MCC risco · Conta nova | 74.888 |
 | 4 | C102093 | 21 | ★ SIM | Renda incompat. · Geo-salto · Anomalia IP · Cash-in→out · E-com sem 3DS · Sanções · PEP · MCC risco | 192.074 |
-| 5 | C100517 | 20 | ★ SIM | Renda incompat. · Geo-salto · Cash-in→out · Burst/Velocidade · E-com sem 3DS · ECI cross-border · Sanções · MCC risco | 129.922 |
+| 5 | C101775 | 20 | não | Renda incompat. · Geo-salto · Cash-in→out · ECI cross-border · Cross-border alto · Sanções · PEP · MCC risco | — |
 
 > ★ = `is_core_label = 1` (acionou ≥ 2 regras-core do conjunto R03/R07/R09/R12/R15).
+>
+> **Critério de desempate:** quando dois ou mais clientes empatam em score, clientes com
+> `is_core_label = 1` são priorizados por acionarem regras-core de alta confiança e menor
+> taxa de falso-positivo — tornando-os candidatos prioritários a SAR. C101208 e C101919
+> empatam em score 22, mas C101208 tem `is_core_label = 1`, sendo portanto o caso de maior
+> prioridade investigativa. O ranking completo (sem filtro) está em `outputs/ranking_risco.csv`;
+> candidatos com `is_core_label = 1` estão detalhados na Seção 6 de `outputs/02_relatorio_regras.md`.
 
 **Tipologias presentes no Top 30 (11 distintas, fonte: `outputs/suspeitos_top30.csv`):**
 
