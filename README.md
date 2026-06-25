@@ -68,10 +68,13 @@ python notebooks/05_agentes_pipeline.py
 
 ```
 aml-case-cloudwalk/
-├── config/rules.yaml              # limiares parametrizáveis
+├── config/
+│   └── rules.yaml                 # limiares parametrizáveis
 ├── data/
 │   ├── raw/                       # base original (gitignored)
 │   └── processed/                 # feature store, scores
+│       ├── sender_features.csv
+│       └── merchant_features.csv
 ├── notebooks/
 │   ├── 01_eda_qualidade.py        # EDA + coerência por rail
 │   ├── 02_regras_alertas.py       # motor de 22 regras
@@ -79,6 +82,7 @@ aml-case-cloudwalk/
 │   ├── 04_modelo_ml.py            # XGBoost + Isolation Forest + SHAP
 │   └── 05_agentes_pipeline.py     # demo do pipeline multi-agente
 ├── src/
+│   ├── config.py                  # SEED e constantes globais
 │   ├── rules_engine.py            # motor de regras
 │   ├── features.py                # feature store
 │   ├── model.py                   # treino e avaliação ML
@@ -88,7 +92,13 @@ aml-case-cloudwalk/
 │   ├── alertas.csv                # todos os alertas gerados
 │   ├── ranking_risco.csv          # score por entidade
 │   ├── suspeitos_top30.csv        # top 30 suspeitos
+│   ├── 01_quality_report.csv      # relatório de qualidade dos dados
+│   ├── 01_relatorio_eda.md        # relatório EDA
+│   ├── 02_relatorio_regras.md     # relatório motor de regras
 │   ├── 04_ml_scores.csv           # score ML dos 3.310 clientes
+│   ├── 04_documentacao_modelo.md  # documentação técnica do modelo
+│   ├── 04_relatorio_ml.md         # relatório técnico ML
+│   ├── 05_relatorio_final.md      # relatório técnico final (5–10 páginas)
 │   ├── figuras/                   # gráficos (ROC, PR, SHAP, geo, timeline)
 │   └── sar/
 │       ├── SAR_C101208.md         # SAR completo (Dia 3, analista) — COMITADO
@@ -100,8 +110,11 @@ aml-case-cloudwalk/
 │           ├── 04_reporte.json
 │           ├── 05_compliance.json
 │           └── sar_agente.md      # SAR gerado pelo Agente de Reporte
-├── outputs/05_relatorio_final.md  # relatório final (base para DOCX)
-└── apresentacao/deck_outline.md   # roteiro do Google Slides (12 slides)
+├── relatorio/
+│   └── gerar_relatorio.py         # script de geração do relatório DOCX/PDF
+└── apresentacao/
+    ├── deck_outline.md            # roteiro do Google Slides (12 slides)
+    └── pdf-case.pdf               # enunciado do case
 ```
 
 ---
