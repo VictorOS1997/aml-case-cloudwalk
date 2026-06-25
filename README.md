@@ -20,6 +20,97 @@
 
 ---
 
+## Guia para o Avaliador
+
+Esta seção mapeia cada tarefa do case aos arquivos correspondentes no repositório.
+
+### Tarefa 1 — Identificação de Suspeitos + SAR
+
+| O quê | Onde encontrar |
+|---|---|
+| Script de investigação | `notebooks/03_suspeitos_sar.py` |
+| Top 30 suspeitos (planilha) | `outputs/suspeitos_top30.csv` |
+| Ranking de risco (4.156 entidades) | `outputs/ranking_risco.csv` |
+| **SAR completo — C101208** | **`outputs/sar/SAR_C101208.md`** |
+| Figuras do caso (grafo · geo-salto · timeline) | `outputs/figuras/03_*.png` |
+| Resumo narrativo no relatório | `outputs/05_relatorio_final.md` §2 |
+
+O SAR inclui: identificação do caso, narrativa executiva, 7 alertas acionados com IDs de transação,
+linha do tempo de 29 transações, análise de geo-saltos, base legal (BACEN/COAF/FATF) e ações
+recomendadas (D+0 → D+3).
+
+### Tarefa 2 — Sistema de Alertas (22 regras)
+
+| O quê | Onde encontrar |
+|---|---|
+| Motor de regras (implementação) | `src/rules_engine.py` |
+| Limiares parametrizáveis | `config/rules.yaml` |
+| Script de execução | `notebooks/02_regras_alertas.py` |
+| **Catálogo completo das 22 regras** | **`outputs/02_relatorio_regras.md`** |
+| Alertas gerados (10.576 linhas) | `outputs/alertas.csv` |
+| Resumo no relatório | `outputs/05_relatorio_final.md` §3 |
+
+O catálogo em `outputs/02_relatorio_regras.md` traz cada regra com: nome, tipologia, severidade,
+lógica/condição, limiares, exemplo por ID de transação e justificativa de risco.
+
+### Tarefa 3 — Modelo de Machine Learning
+
+| O quê | Onde encontrar |
+|---|---|
+| Script de treino e avaliação | `notebooks/04_modelo_ml.py` |
+| Implementação do modelo | `src/model.py` |
+| Scores de risco (3.310 clientes) | `outputs/04_ml_scores.csv` |
+| Feature store por entidade | `data/processed/sender_features.csv` |
+| **Documentação técnica completa** | **`outputs/04_documentacao_modelo.md`** |
+| Relatório com métricas e gráficos | `outputs/04_relatorio_ml.md` |
+| Curvas ROC, PR, SHAP, calibração | `outputs/figuras/04_*.png` |
+| Resumo no relatório final | `outputs/05_relatorio_final.md` §4 |
+
+Label/alvo: weak label a partir de ≥2 regras-core (R03, R07, R09, R12, R15).
+Validação: split temporal (80/20 por `first_tx_date`) + cross-validation 5-fold.
+
+### Tarefa 4 — Sistema Multi-Agente (LLM)
+
+| O quê | Onde encontrar |
+|---|---|
+| **Pipeline com prompts completos** | **`src/agents/pipeline.py`** |
+| Demo sem API key (modo simulado) | `notebooks/05_agentes_pipeline.py` |
+| Artefatos JSON por estágio (runtime) | `outputs/sar/C101208/` *(gerado ao executar com ANTHROPIC_API_KEY)* |
+| SAR gerado pelo agente (runtime) | `outputs/sar/C101208/sar_agente.md` |
+| Resumo no relatório | `outputs/05_relatorio_final.md` §5 |
+
+Os 5 system prompts estão em `src/agents/pipeline.py` (auto-documentado).
+Para executar o teste em tempo real: `python src/agents/pipeline.py --case C101208` (requer `ANTHROPIC_API_KEY`).
+Para demo sem API key: `python notebooks/05_agentes_pipeline.py`.
+
+### Relatório Final
+
+| O quê | Onde encontrar |
+|---|---|
+| **Relatório em Markdown** | **`outputs/05_relatorio_final.md`** |
+| Script para gerar DOCX | `relatorio/gerar_relatorio.py` |
+
+O relatório cobre as 5 seções obrigatórias: resumo executivo · achados suspeitos + SAR ·
+regras/alertas · modelo de ML · arquitetura multi-agente. Para gerar o arquivo DOCX:
+
+```bash
+pip install python-docx
+python relatorio/gerar_relatorio.py
+# Saída: relatorio/Relatorio_AML_FT_CloudWalk.docx
+```
+
+### Apresentação
+
+| O quê | Onde encontrar |
+|---|---|
+| Roteiro de 12 slides (conteúdo completo) | `apresentacao/deck_outline.md` |
+| Enunciado original do case | `apresentacao/pdf-case.pdf` |
+
+O arquivo `deck_outline.md` contém o conteúdo integral de cada um dos 12 slides
+(título, dados, tabelas, visuais e narrativa), estruturado para ser montado no Google Slides.
+
+---
+
 ## Caso principal — C101208
 
 Cliente Chef, renda declarada R$ 13.047/ano, movimentou **R$ 150.178 (11,5× renda)** em 29
@@ -58,9 +149,12 @@ python src/agents/pipeline.py --case C101208
 
 # Sem API key (modo simulado):
 python notebooks/05_agentes_pipeline.py
+
+# Gerar relatório DOCX:
+python relatorio/gerar_relatorio.py
 ```
 
-**Seed:** `SEED = 42` em todos os módulos. Python 3.12+.
+**Seed:** `SEED = 42` em todos os módulos (`src/config.py`). Python 3.12+.
 
 ---
 
@@ -94,14 +188,14 @@ aml-case-cloudwalk/
 │   ├── suspeitos_top30.csv        # top 30 suspeitos
 │   ├── 01_quality_report.csv      # relatório de qualidade dos dados
 │   ├── 01_relatorio_eda.md        # relatório EDA
-│   ├── 02_relatorio_regras.md     # relatório motor de regras
+│   ├── 02_relatorio_regras.md     # catálogo completo das 22 regras (Tarefa 2)
 │   ├── 04_ml_scores.csv           # score ML dos 3.310 clientes
 │   ├── 04_documentacao_modelo.md  # documentação técnica do modelo
 │   ├── 04_relatorio_ml.md         # relatório técnico ML
 │   ├── 05_relatorio_final.md      # relatório técnico final (5–10 páginas)
 │   ├── figuras/                   # gráficos (ROC, PR, SHAP, geo, timeline)
 │   └── sar/
-│       ├── SAR_C101208.md         # SAR completo (Dia 3, analista) — COMITADO
+│       ├── SAR_C101208.md         # SAR completo (Tarefa 1) — COMITADO
 │       └── C101208/               # artefatos do pipeline multi-agente (gerados em runtime)
 │           ├── 00_auditoria.json  # ↑ produzidos por src/agents/pipeline.py
 │           ├── 01_dados.json      #   ao rodar com ANTHROPIC_API_KEY definida.
@@ -111,9 +205,9 @@ aml-case-cloudwalk/
 │           ├── 05_compliance.json
 │           └── sar_agente.md      # SAR gerado pelo Agente de Reporte
 ├── relatorio/
-│   └── gerar_relatorio.py         # script de geração do relatório DOCX/PDF
+│   └── gerar_relatorio.py         # script de geração do relatório DOCX
 └── apresentacao/
-    ├── deck_outline.md            # roteiro do Google Slides (12 slides)
+    ├── deck_outline.md            # roteiro completo dos 12 slides (Tarefa Apresentação)
     └── pdf-case.pdf               # enunciado do case
 ```
 
@@ -138,6 +232,8 @@ aml-case-cloudwalk/
 | Parcelamento atípico | R19 | 33 |
 | **Total** | **22** | **10.576** |
 
+Catálogo completo com lógica, limiares, exemplo por ID e justificativa: `outputs/02_relatorio_regras.md`
+
 ---
 
 ## Modelo ML (Tarefa 3)
@@ -160,8 +256,7 @@ positivos / 3.310 clientes (3,3% — base desbalanceada). Definição canônica 
 | Precisão @ threshold 0,437 | 32% | — |
 | Clientes no tier "alto" | 249 (7,5%) | — |
 
-O CV é a referência (estável, sem dependência de um split específico). O teste único deu
-PR-AUC mais alto por sorteio favorável do conjunto de teste — discussão completa em
+O CV é a referência (estável, sem dependência de um split específico). Discussão completa em
 `outputs/04_documentacao_modelo.md` §6.
 
 ---
@@ -178,6 +273,8 @@ estágio e registra trilha de auditoria. Casos `revise` são re-enfileirados com
 
 **Resultado C101208:** APPROVE → `report_coaf` → SLA D+3 (prazo COAF)
 
+Os 5 system prompts estão no próprio `src/agents/pipeline.py` (auto-documentado).
+
 ---
 
 ## Reprodutibilidade
@@ -192,10 +289,15 @@ estágio e registra trilha de auditoria. Casos `revise` são re-enfileirados com
 
 ## Documentação
 
-- `outputs/05_relatorio_final.md` — relatório técnico completo (5–10 páginas)
-- `apresentacao/deck_outline.md` — roteiro do Google Slides (12 slides)
-- `outputs/sar/SAR_C101208.md` — SAR completo do caso principal
-- `outputs/04_relatorio_ml.md` — relatório técnico do modelo ML
+| Arquivo | Conteúdo |
+|---|---|
+| `outputs/05_relatorio_final.md` | Relatório técnico completo (5–10 páginas) |
+| `outputs/02_relatorio_regras.md` | Catálogo das 22 regras com lógica, limiares e exemplos (Tarefa 2) |
+| `outputs/04_documentacao_modelo.md` | Documentação técnica do modelo ML (Tarefa 3) |
+| `outputs/04_relatorio_ml.md` | Relatório de métricas e gráficos do modelo |
+| `outputs/sar/SAR_C101208.md` | SAR completo do caso principal (Tarefa 1) |
+| `apresentacao/deck_outline.md` | Roteiro dos 12 slides da apresentação |
+| `relatorio/gerar_relatorio.py` | Script para gerar `Relatorio_AML_FT_CloudWalk.docx` |
 
 ---
 
