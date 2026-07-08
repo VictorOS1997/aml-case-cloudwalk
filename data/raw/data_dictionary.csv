@@ -1,0 +1,20 @@
+column,description
+transaction_type,PIX/Card/Wire — coherent rail flags and fields
+pix_flow,For PIX only: cash_in (merchant→customer) or cash_out (customer→merchant/peer)
+issuing_or_acquiring,Card only: acquiring if receiver is merchant; issuing otherwise; n/a for PIX/Wire
+card_brand,Visa/Mastercard/Elo/Amex/Hipercard; n/a outside Card
+card_present,"Yes for POS (Chip/NFC/Magstripe), No for E-commerce/MOTO"
+auth_3ds,E-commerce only; often Yes
+eci,"E-commerce indicator (e.g., 05/06/07)"
+capture_method,PIX: QR Static/Dynamic/Pix Key/CopyPaste; Card: Chip/NFC/Magstripe/E-commerce/MOTO; Wire: SWIFT/Domestic
+payment_method,Card: credit/debit; n/a for PIX/Wire
+installments,>1 only allowed for credit; 1 for debit/PIX/Wire
+geo_country/ip_country/sender_country/receiver_country,Includes High/Monitored risk countries
+country_risk_*,High/Monitored/Low from synthetic country list
+sanctions_screening_hit,Yes/No for Wire mostly
+ip_proxy_vpn_tor,None/VPN/Proxy/Tor — for IP risk alerts
+device_rooted,Yes/No — device integrity signal
+cross_border,Yes/No based on sender vs receiver countries
+mcc,Merchant category
+merchant_high_risk_flag,From MCC/country + noise
+merchant_chargeback_ratio_90d,Proxy for chargeback risk
